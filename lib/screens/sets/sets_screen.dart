@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:projects/models/vocab_set.dart';
 import 'package:projects/screens/sets/set_detail_screen.dart';
 
+import '../../widgets/set_tile.dart';
+
 class SetsScreen extends StatefulWidget {
   const SetsScreen({super.key});
 
@@ -35,12 +37,13 @@ class _SetsScreenState extends State<SetsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListView(
-        children: _sets.map((set) => ListTile(
-          title: Text(set.name),
+      body: GridView.count(
+        crossAxisCount: 2,
+        children: _sets.map((s) => SetCard(
+          set: s,
           onTap: () {
             Navigator.push(context, MaterialPageRoute(
-              builder: (_) => SetDetailScreen(vocabSet: set),
+              builder: (_) => SetDetailScreen(vocabSet: s),
             ));
           },
         )).toList(),

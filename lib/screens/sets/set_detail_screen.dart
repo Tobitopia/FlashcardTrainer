@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projects/models/vocab_set.dart';
 import '../../models/vocab_card.dart';
+import '../../widgets/card_tile.dart';
 
 class SetDetailScreen extends StatefulWidget {
   final VocabSet vocabSet;
@@ -48,10 +49,9 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.vocabSet.name)),
-      body: ListView(
-        children: widget.vocabSet.cards
-            .map((card) => ListTile(title: Text(card.front), subtitle: Text(card.back)))
-            .toList(),
+      body: GridView.count(
+        crossAxisCount: 2,
+        children: widget.vocabSet.cards.map((c) => CardTile(card: c)).toList(),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addCard,
