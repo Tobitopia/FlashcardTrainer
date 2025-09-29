@@ -62,3 +62,34 @@ Main features:
 - [ ] Display rating distribution in chart.
 - [ ] Show progress over time.
 
+## File Stucture
+lib/
+│ main.dart                # entrypoint, runs MyApp
+│
+├── app/
+│   ├── my_app.dart         # MaterialApp + theme
+│   └── navigation.dart     # BottomNavigationBar screen
+│
+├── models/
+│   ├── vocab_card.dart     # VocabCard class
+│   └── vocab_set.dart      # VocabSet class
+│
+├── screens/
+│   ├── sets/
+│   │   ├── sets_screen.dart        # Lists sets
+│   │   ├── set_detail_screen.dart  # Inside a set
+│   │   └── add_set_dialog.dart     # Dialog for new set
+│   │
+│   ├── all_cards/
+│   │   └── all_cards_screen.dart
+│   │
+│   └── stats/
+│       └── stats_screen.dart
+│
+├── widgets/
+│   ├── card_tile.dart       # reusable UI for showing a vocab card
+│   ├── set_tile.dart        # reusable UI for showing a set
+│   └── rating_stars.dart    # example reusable widget
+│
+└── services/
+└── training_service.dart  # logic for training modes
