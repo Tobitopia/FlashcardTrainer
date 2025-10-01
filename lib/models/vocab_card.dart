@@ -1,6 +1,6 @@
 class VocabCard {
-  final String front;
-  final String back;
+  String front;
+  String back;
   final List<String> labels;
   int rating;
 
