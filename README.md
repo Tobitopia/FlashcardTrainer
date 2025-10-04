@@ -92,4 +92,7 @@ lib/
 │   └── rating_stars.dart    # example reusable widget
 │
 └── services/
-└── training_service.dart  # logic for training modes
+│   └── training_service.dart  # logic for training modes
+│
+└── helpers/
+    └── database_helpers.dart

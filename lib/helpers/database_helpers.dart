@@ -40,8 +40,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // --- NEW TABLE for Labels ---
-    // This creates a link between cards and their labels.
     await db.execute('''
       CREATE TABLE labels(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,8 +49,6 @@ class DatabaseHelper {
       )
     ''');
   }
-
-  // --- VocabSet Methods (no changes here) ---
 
   Future<int> insertSet(VocabSet set) async {
     final db = await instance.database;
@@ -81,17 +77,13 @@ class DatabaseHelper {
     return await db.delete('sets', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- VocabCard & Label Methods ---
-
   Future<int> insertCard(VocabCard card, int setId) async {
     final db = await instance.database;
     final cardMap = card.toMap();
     cardMap['setId'] = setId;
 
-    // Insert the card and get its new ID
     final cardId = await db.insert('cards', cardMap);
 
-    // --- NEW: Now, save the labels for this card ---
     await _insertLabels(card.labels, cardId);
 
     return cardId;
@@ -107,11 +99,8 @@ class DatabaseHelper {
 
     List<VocabCard> cards = [];
     for (var cardMap in cardMaps) {
-      // Create the card object
       final card = VocabCard.fromMap(cardMap);
-      // --- NEW: Fetch the labels for this specific card ---
       final cardLabels = await _getLabelsForCard(card.id!);
-      // Create a new card instance that includes the fetched labels
       cards.add(VocabCard(
         id: card.id,
         front: card.front,
@@ -128,19 +117,70 @@ class DatabaseHelper {
     return await db.delete('cards', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<int> updateCard(VocabCard card) async {
+    final db = await instance.database;
 
-  /// Inserts a list of labels for a given cardId.
+    final result = await db.update(
+      'cards',
+      card.toMap(),
+      where: 'id = ?',
+      whereArgs: [card.id],
+    );
+
+    await db.delete('labels', where: 'cardId = ?', whereArgs: [card.id]);
+    await _insertLabels(card.labels, card.id!);
+
+    return result;
+  }
+
+  Future<List<String>> getAllLabels() async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> labelMaps = await db.query(
+      'labels',
+      columns: ['name'],
+      distinct: true,
+      orderBy: 'name',
+    );
+
+    if (labelMaps.isEmpty) {
+      return [];
+    }
+
+    return labelMaps.map((map) => map['name'] as String).toList();
+  }
+
+  Future<List<VocabCard>> getAllCards() async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> cardMaps = await db.query('cards', orderBy: 'id DESC');
+
+    if (cardMaps.isEmpty) {
+      return [];
+    }
+
+    List<VocabCard> cards = [];
+    for (var cardMap in cardMaps) {
+      final card = VocabCard.fromMap(cardMap);
+      final cardLabels = await _getLabelsForCard(card.id!);
+      cards.add(VocabCard(
+        id: card.id,
+        front: card.front,
+        back: card.back,
+        rating: card.rating,
+        labels: cardLabels,
+      ));
+    }
+    return cards;
+  }
+
   Future<void> _insertLabels(List<String> labels, int cardId) async {
     final db = await instance.database;
-    // Use a "batch" to perform multiple inserts at once, which is more efficient.
     final batch = db.batch();
     for (final label in labels) {
       batch.insert('labels', {'name': label, 'cardId': cardId});
     }
-    await batch.commit(noResult: true); // Commit the batch
+    await batch.commit(noResult: true);
   }
 
-  /// Retrieves all labels for a given cardId.
   Future<List<String>> _getLabelsForCard(int cardId) async {
     final db = await instance.database;
     final List<Map<String, dynamic>> labelMaps = await db.query(
@@ -154,7 +194,6 @@ class DatabaseHelper {
       return [];
     }
 
-    // Extract the 'name' from each map and return it as a list of strings.
     return labelMaps.map((map) => map['name'] as String).toList();
   }
 }

@@ -1,28 +1,31 @@
 import 'vocab_card.dart';
 
-class VocabSet{
+class VocabSet {
   int? id;
-  final String name;
+  String name;
   List<VocabCard> cards;
 
-  // constructor
   VocabSet({
     this.id,
     required this.name,
     List<VocabCard>? cards,
-  }): cards = cards ?? [];
+  }) : cards = cards ?? [];
 
-  Map<String, Object?> toMap() {
-    return {'name': name};
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+    };
   }
 
   factory VocabSet.fromMap(Map<String, dynamic> map) {
-    return VocabSet(id: map['id'], name: map['name']);
+    return VocabSet(
+      id: map['id'],
+      name: map['name'],
+    );
   }
 
-
-  void addCard(VocabCard card){
+  void addCard(VocabCard card) {
     cards.add(card);
   }
-
 }
