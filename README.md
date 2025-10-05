@@ -1,51 +1,66 @@
 # Vocab Trainer (Flutter)
 
-A simple vocabulary training app built with Flutter.  
-Main features:
-- Manage vocab **sets** and add cards.
-- Assign **labels** and **ratings (1–5)** to cards.
-- Train vocab with different strategies.
-- See **statistics** and progress graphs.
+A dynamic and media-rich vocabulary training application built with Flutter. This app allows users to create personalized flashcard sets, incorporating not just text but also videos and images for a more engaging learning experience.
+
+## Key Features
+
+- **Media-Rich Flashcards:** Move beyond simple text. Create cards with a title, a description, and attach a video or image directly from your device's gallery or camera.
+- **Organize with Sets:** Group your cards into custom sets for focused study sessions.
+- **Dynamic Labeling:** Assign multiple labels to your cards (e.g., "verbs," "chapter 3," "difficult") for powerful filtering and organization.
+- **Card Rating:** Rate your confidence with each card on a 1-5 star scale to track your learning progress.
+- **Database Powered:** All your sets, cards, and labels are stored locally on your device using a robust SQLite database.
+- **Filter and Find:** Quickly find the cards you need on the "All Cards" screen with a label-based filter.
+- **Intuitive UI:** A clean, modern interface with a bottom navigation bar for easy access to all features.
+
+## How to Use
+
+1.  **Create a Set:** Navigate to the **Sets** tab and tap the '+' button to create a new vocabulary set.
+2.  **Add a Card:** Open a set and tap the '+' button again to open the "New Card" dialog.
+3.  **Build Your Card:**
+    *   Fill in the **Title** and **Description**.
+    *   Tap **"Gallery"** or **"Camera"** to add a video.
+    *   Add existing labels or create new ones.
+    *   Set a rating with the slider.
+4.  **View Your Cards:**
+    *   In a set, tap a card to view it. If it has a video, it will open in a video player.
+    *   Long-press a card to bring up options to **Edit** or **Delete** it.
+    *   Long-press a set on the main screen to delete it (with a confirmation).
 
 ## App Structure
 
 - **Bottom Navigation**
-    - **Sets**: Create and manage sets, add cards, filter by labels, start training.
-    - **All Cards**: Browse all cards across sets, filter, start training.
-    - **Stats**: Visualize progress and rating distribution.
+    - **Sets**: Create and manage sets, add media cards, and start training.
+    - **All Cards**: Browse all cards across all sets, with label filtering.
+    - **Stats**: (Future Work) Visualize progress and rating distribution.
 
 - **Floating Action Button (FAB)**
-    - On Sets screen → Add new set or start training inside a set.
-    - On Cards screen → Start training.
-    - On Stats screen → No action.
+    - On **Sets** screen → Add a new set.
+    - Inside a set → Add a new card.
 
-- **Training Modes**
-    - All in order.
-    - By rating.
-    - By time not seen.
-    - Intelligent (smarter scheduling later).
-
-## Issues / Milestones
+## Project Milestones
 
 ### Core Models
-- [ ] Define `VocabCard` and `VocabSet` classes. ✅
-- [ ] Add methods for update, filter, and statistics.
+- [x] Define `VocabCard` and `VocabSet` classes.
+- [x] Add methods for update, filter, and statistics.
+- [x] **Update `VocabCard` to support media (title, description, mediaPath).**
 
 ### UI: Navigation
-- [ ] Implement `BottomNavigationBar` with three tabs: Sets, All Cards, Stats.
-- [ ] Add `FloatingActionButton` behavior per tab.
+- [x] Implement `BottomNavigationBar` with three tabs: Sets, All Cards, Stats.
+- [x] Add `FloatingActionButton` behavior per tab.
 
 ### UI: Sets
-- [ ] List existing sets.
-- [ ] Create new set with dialog prompt.
-- [ ] Navigate into a set detail screen.
-- [ ] Add cards to a set (form with front, back, labels).
+- [x] List existing sets.
+- [x] Create new set with dialog prompt.
+- [x] **Delete set with a long-press and confirmation.**
+- [x] Navigate into a set detail screen.
+- [x] **Add media cards to a set (title, description, video, labels, rating).**
+- [x] **Edit and Delete cards via long-press menu.**
 - [ ] Filter cards by labels.
 - [ ] Start training from a filtered set.
 
 ### UI: All Cards
-- [ ] List all cards across sets.
-- [ ] Filter by labels.
+- [x] List all cards across sets.
+- [x] Filter by labels.
 - [ ] Start training.
 
 ### UI: Training
@@ -62,37 +77,8 @@ Main features:
 - [ ] Display rating distribution in chart.
 - [ ] Show progress over time.
 
-## File Stucture
-lib/
-│ main.dart                # entrypoint, runs MyApp
-│
-├── app/
-│   ├── my_app.dart         # MaterialApp + theme
-│   └── navigation.dart     # BottomNavigationBar screen
-│
-├── models/
-│   ├── vocab_card.dart     # VocabCard class
-│   └── vocab_set.dart      # VocabSet class
-│
-├── screens/
-│   ├── sets/
-│   │   ├── sets_screen.dart        # Lists sets
-│   │   ├── set_detail_screen.dart  # Inside a set
-│   │   └── add_set_dialog.dart     # Dialog for new set
-│   │
-│   ├── all_cards/
-│   │   └── all_cards_screen.dart
-│   │
-│   └── stats/
-│       └── stats_screen.dart
-│
-├── widgets/
-│   ├── card_tile.dart       # reusable UI for showing a vocab card
-│   ├── set_tile.dart        # reusable UI for showing a set
-│   └── rating_stars.dart    # example reusable widget
-│
-└── services/
-│   └── training_service.dart  # logic for training modes
-│
-└── helpers/
-    └── database_helpers.dart
+### Database
+- [x] Set up `database_helpers.dart` with SQLite.
+- [x] Implement full CRUD (Create, Read, Update, Delete) for Sets and Cards.
+- [x] Implement labeling system in the database.
+- [x] **Update database schema to support media cards.**
