@@ -1,14 +1,16 @@
 class VocabCard {
   int? id;
-  String front;
-  String back;
+  String title;
+  String description;
+  String? mediaPath; // Path to the video or image file
   List<String> labels;
   int rating;
 
   VocabCard({
     this.id,
-    required this.front,
-    required this.back,
+    required this.title,
+    required this.description,
+    this.mediaPath,
     this.labels = const [],
     this.rating = 0,
   });
@@ -16,8 +18,9 @@ class VocabCard {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'front': front,
-      'back': back,
+      'title': title,
+      'description': description,
+      'mediaPath': mediaPath,
       'rating': rating,
     };
   }
@@ -25,8 +28,9 @@ class VocabCard {
   factory VocabCard.fromMap(Map<String, dynamic> map) {
     return VocabCard(
       id: map['id'],
-      front: map['front'],
-      back: map['back'],
+      title: map['title'],
+      description: map['description'],
+      mediaPath: map['mediaPath'],
       rating: map['rating'],
     );
   }

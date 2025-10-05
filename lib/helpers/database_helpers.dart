@@ -18,6 +18,8 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
+    // To handle schema changes, you can increment the version and use onUpgrade,
+    // but for this tutorial, simply uninstalling the app is the easiest way.
     return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
@@ -32,8 +34,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE cards(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        front TEXT NOT NULL,
-        back TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        mediaPath TEXT,
         rating INTEGER NOT NULL,
         setId INTEGER NOT NULL,
         FOREIGN KEY (setId) REFERENCES sets (id) ON DELETE CASCADE
@@ -103,8 +106,9 @@ class DatabaseHelper {
       final cardLabels = await _getLabelsForCard(card.id!);
       cards.add(VocabCard(
         id: card.id,
-        front: card.front,
-        back: card.back,
+        title: card.title,
+        description: card.description,
+        mediaPath: card.mediaPath,
         rating: card.rating,
         labels: cardLabels,
       ));
@@ -163,8 +167,9 @@ class DatabaseHelper {
       final cardLabels = await _getLabelsForCard(card.id!);
       cards.add(VocabCard(
         id: card.id,
-        front: card.front,
-        back: card.back,
+        title: card.title,
+        description: card.description,
+        mediaPath: card.mediaPath,
         rating: card.rating,
         labels: cardLabels,
       ));
