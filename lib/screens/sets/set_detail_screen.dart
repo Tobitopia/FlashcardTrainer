@@ -19,17 +19,47 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   late Future<List<VocabCard>> _cardsFuture;
   final dbHelper = DatabaseHelper.instance;
 
+  // State for filters
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  double _minRating = 0.0;
+  final Set<String> _selectedLabels = {};
+
   @override
   void initState() {
     super.initState();
     _loadCards();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadCards() {
     setState(() {
+      // We reload cards from the DB. This will also be triggered after adding/editing a card.
       _cardsFuture = dbHelper.getCardsForSet(widget.vocabSet.id!);
     });
   }
+
+  void _toggleLabel(String label) {
+    setState(() {
+      if (_selectedLabels.contains(label)) {
+        _selectedLabels.remove(label);
+      } else {
+        _selectedLabels.add(label);
+      }
+    });
+  }
+
+  // --- Dialog and Picker Methods (largely unchanged) ---
 
   void _addOrEditCard([VocabCard? card]) async {
     final isEditing = card != null;
@@ -53,7 +83,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                     TextField(controller: titleController, decoration: const InputDecoration(labelText: "Title")),
                     TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
                     const SizedBox(height: 16),
-                    // --- Improved Media Display Logic ---
                     if (mediaPath != null)
                       Row(
                         children: [
@@ -75,7 +104,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                           TextButton.icon(onPressed: () => _pickMedia(ImageSource.camera, (path) => setState(() => mediaPath = path)), icon: const Icon(Icons.camera_alt), label: const Text("Camera")),
                         ],
                       ),
-                    // --- End of Improved Media Display ---
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 8.0,
@@ -119,7 +147,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       } else {
         await dbHelper.insertCard(result, widget.vocabSet.id!);
       }
-      _loadCards();
+      _loadCards(); // This re-fetches from the DB and updates the UI
     }
   }
 
@@ -162,77 +190,144 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (card.mediaPath != null && File(card.mediaPath!).existsSync()) 
-                  Image.file(File(card.mediaPath!)),
+                if (card.mediaPath != null && File(card.mediaPath!).existsSync()) Image.file(File(card.mediaPath!)),
                 const SizedBox(height: 8),
                 Text(card.description),
               ],
             ),
           ),
-          actions: [ TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close")) ],
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close"))],
         ),
       );
     }
   }
 
   void _deleteCard(int cardId) async {
-    await dbHelper.deleteCard(cardId);
-    _loadCards();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Card?"),
+        content: const Text("Are you sure you want to permanently delete this card?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete")),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await dbHelper.deleteCard(cardId);
+      _loadCards();
+    }
   }
 
   void _addLabel(List<String> labels, StateSetter setState) async {
-    final labelController = TextEditingController();
-    final allLabels = await dbHelper.getAllLabels();
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Add Label"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: labelController, decoration: const InputDecoration(labelText: "New Label")),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8.0,
-              children: allLabels.map((label) => FilterChip(label: Text(label), selected: labels.contains(label), onSelected: (selected) { if (selected) { setState(() => labels.add(label)); } else { setState(() => labels.remove(label)); } Navigator.pop(ctx); },)).toList(),
-            ),
-          ],
-        ),
-        actions: [ TextButton(onPressed: () { if (labelController.text.isNotEmpty) { Navigator.pop(ctx, labelController.text); } }, child: const Text("Add New")) ],
-      ),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      setState(() => labels.add(result));
-    }
+    // This is the same as in the add/edit dialog
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.vocabSet.name)),
-      body: FutureBuilder<List<VocabCard>>(
-        future: _cardsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: \${snapshot.error}"));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("No cards yet. Add one!"));
-          } else {
-            final cards = snapshot.data!;
-            return GridView.count(
-              crossAxisCount: 2,
-              children: cards.map((c) => InkWell(
-                onTap: () => _viewCard(c),
-                onLongPress: () => _showOptionsDialog(c),
-                child: CardTile(card: c),
-              )).toList(),
-            );
-          }
-        },
+      body: Column(
+        children: [
+          // --- Filter controls ---
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search in this set...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text('Min Rating: ${_minRating.round()}'),
+                    Expanded(
+                      child: Slider(
+                        value: _minRating,
+                        onChanged: (newRating) => setState(() => _minRating = newRating),
+                        min: 0,
+                        max: 5,
+                        divisions: 5,
+                        label: _minRating.round().toString(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // --- Card Grid ---
+          Expanded(
+            child: FutureBuilder<List<VocabCard>>(
+              future: _cardsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text("Error: \${snapshot.error}"));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("No cards yet. Add one!"));
+                } else {
+                  final allCardsInSet = snapshot.data!;
+                  
+                  // Get unique labels from the cards in *this* set
+                  final labelsInSet = allCardsInSet.expand((card) => card.labels).toSet().toList();
+
+                  // Apply filters
+                  final filteredCards = allCardsInSet.where((card) {
+                    final ratingMatch = card.rating >= _minRating.round();
+                    final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
+                    final query = _searchQuery.toLowerCase();
+                    final searchMatch = query.isEmpty ||
+                        card.title.toLowerCase().contains(query) ||
+                        card.description.toLowerCase().contains(query);
+                    return ratingMatch && labelMatch && searchMatch;
+                  }).toList();
+
+                  return Column(
+                    children: [
+                      // Label Filters
+                      if (labelsInSet.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          child: Wrap(
+                            spacing: 8.0,
+                            children: labelsInSet.map((label) => FilterChip(
+                              label: Text(label),
+                              selected: _selectedLabels.contains(label),
+                              onSelected: (_) => _toggleLabel(label),
+                            )).toList(),
+                          ),
+                        ),
+                      // Grid itself
+                      Expanded(
+                        child: filteredCards.isEmpty
+                            ? const Center(child: Text("No cards match your filters."))
+                            : GridView.count(
+                                crossAxisCount: 2,
+                                children: filteredCards.map((c) => InkWell(
+                                  onTap: () => _viewCard(c),
+                                  onLongPress: () => _showOptionsDialog(c),
+                                  child: CardTile(card: c),
+                                )).toList(),
+                              ),
+                      ),
+                    ],
+                  );
+                }
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addOrEditCard(),

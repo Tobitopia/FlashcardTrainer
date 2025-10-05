@@ -13,13 +13,29 @@ class AllCardsScreen extends StatefulWidget {
 class _AllCardsScreenState extends State<AllCardsScreen> {
   late Future<List<VocabCard>> _allCardsFuture;
   late Future<List<String>> _allLabelsFuture;
-  final Set<String> _selectedLabels = {};
   final dbHelper = DatabaseHelper.instance;
+
+  // State for new filters
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  double _minRating = 0.0;
+  final Set<String> _selectedLabels = {};
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadData() {
@@ -45,6 +61,51 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
       appBar: AppBar(title: const Text("All Cards")),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                // Text Search Field
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search title or description...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+                    // Add a clear button
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Rating Slider
+                Row(
+                  children: [
+                    Text('Min Rating: ${_minRating.round()}'),
+                    Expanded(
+                      child: Slider(
+                        value: _minRating,
+                        onChanged: (newRating) {
+                          setState(() => _minRating = newRating);
+                        },
+                        min: 0,
+                        max: 5,
+                        divisions: 5,
+                        label: _minRating.round().toString(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Label Filters
           FutureBuilder<List<String>>(
             future: _allLabelsFuture,
             builder: (context, snapshot) {
@@ -53,7 +114,7 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
               }
               final labels = snapshot.data!;
               return Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 child: Wrap(
                   spacing: 8.0,
                   children: labels.map((label) => FilterChip(
@@ -65,6 +126,7 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
               );
             },
           ),
+          // Card Grid
           Expanded(
             child: FutureBuilder<List<VocabCard>>(
               future: _allCardsFuture,
@@ -77,12 +139,19 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
                   return const Center(child: Text("No cards found."));
                 } else {
                   final allCards = snapshot.data!;
-                  final filteredCards = _selectedLabels.isEmpty
-                      ? allCards
-                      : allCards.where((card) => _selectedLabels.any((label) => card.labels.contains(label))).toList();
+                  // Apply all filters
+                  final filteredCards = allCards.where((card) {
+                    final ratingMatch = card.rating >= _minRating.round();
+                    final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
+                    final query = _searchQuery.toLowerCase();
+                    final searchMatch = query.isEmpty ||
+                        card.title.toLowerCase().contains(query) ||
+                        card.description.toLowerCase().contains(query);
+                    return ratingMatch && labelMatch && searchMatch;
+                  }).toList();
 
                   if (filteredCards.isEmpty) {
-                    return const Center(child: Text("No cards match your filter."));
+                    return const Center(child: Text("No cards match your filters."));
                   }
 
                   return GridView.count(
