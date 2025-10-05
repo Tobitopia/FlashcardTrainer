@@ -19,7 +19,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   late Future<List<VocabCard>> _cardsFuture;
   final dbHelper = DatabaseHelper.instance;
 
-  // State for filters
   final _searchController = TextEditingController();
   String _searchQuery = '';
   double _minRating = 0.0;
@@ -44,7 +43,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
 
   void _loadCards() {
     setState(() {
-      // We reload cards from the DB. This will also be triggered after adding/editing a card.
       _cardsFuture = dbHelper.getCardsForSet(widget.vocabSet.id!);
     });
   }
@@ -58,8 +56,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       }
     });
   }
-
-  // --- Dialog and Picker Methods (largely unchanged) ---
 
   void _addOrEditCard([VocabCard? card]) async {
     final isEditing = card != null;
@@ -147,7 +143,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       } else {
         await dbHelper.insertCard(result, widget.vocabSet.id!);
       }
-      _loadCards(); // This re-fetches from the DB and updates the UI
+      _loadCards();
     }
   }
 
@@ -221,7 +217,78 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   }
 
   void _addLabel(List<String> labels, StateSetter setState) async {
-    // This is the same as in the add/edit dialog
+    final labelController = TextEditingController();
+    final allLabels = await dbHelper.getAllLabels();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogContext, dialogSetState) {
+            return AlertDialog(
+              title: const Text("Add Label"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: labelController,
+                      decoration: InputDecoration(
+                        labelText: "New Label",
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () {
+                            final newLabel = labelController.text;
+                            if (newLabel.isNotEmpty && !labels.contains(newLabel)) {
+                              setState(() {
+                                labels.add(newLabel);
+                              });
+                              dialogSetState(() {});
+                              labelController.clear();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (allLabels.isNotEmpty) ...[
+                      const Text("Or select existing:"),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8.0,
+                        children: allLabels.map((label) {
+                          final isSelected = labels.contains(label);
+                          return FilterChip(
+                            label: Text(label),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  labels.add(label);
+                                } else {
+                                  labels.remove(label);
+                                }
+                              });
+                              dialogSetState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Done"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -230,7 +297,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       appBar: AppBar(title: Text(widget.vocabSet.name)),
       body: Column(
         children: [
-          // --- Filter controls ---
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
@@ -265,7 +331,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
               ],
             ),
           ),
-          // --- Card Grid ---
           Expanded(
             child: FutureBuilder<List<VocabCard>>(
               future: _cardsFuture,
@@ -278,11 +343,8 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                   return const Center(child: Text("No cards yet. Add one!"));
                 } else {
                   final allCardsInSet = snapshot.data!;
-                  
-                  // Get unique labels from the cards in *this* set
                   final labelsInSet = allCardsInSet.expand((card) => card.labels).toSet().toList();
 
-                  // Apply filters
                   final filteredCards = allCardsInSet.where((card) {
                     final ratingMatch = card.rating >= _minRating.round();
                     final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
@@ -295,7 +357,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
 
                   return Column(
                     children: [
-                      // Label Filters
                       if (labelsInSet.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
@@ -308,7 +369,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                             )).toList(),
                           ),
                         ),
-                      // Grid itself
                       Expanded(
                         child: filteredCards.isEmpty
                             ? const Center(child: Text("No cards match your filters."))
