@@ -122,16 +122,8 @@ class DatabaseHelper {
     List<VocabCard> cards = [];
     for (var cardMap in cardMaps) {
       final card = VocabCard.fromMap(cardMap);
-      final cardLabels = await _getLabelsForCard(card.id!);
-      cards.add(VocabCard(
-        id: card.id,
-        title: card.title,
-        description: card.description,
-        mediaPath: card.mediaPath,
-        rating: card.rating,
-        lastTrained: card.lastTrained,
-        labels: cardLabels,
-      ));
+      card.labels = await _getLabelsForCard(card.id!);
+      cards.add(card);
     }
     return cards;
   }
@@ -184,16 +176,8 @@ class DatabaseHelper {
     List<VocabCard> cards = [];
     for (var cardMap in cardMaps) {
       final card = VocabCard.fromMap(cardMap);
-      final cardLabels = await _getLabelsForCard(card.id!);
-      cards.add(VocabCard(
-        id: card.id,
-        title: card.title,
-        description: card.description,
-        mediaPath: card.mediaPath,
-        rating: card.rating,
-        lastTrained: card.lastTrained,
-        labels: cardLabels,
-      ));
+      card.labels = await _getLabelsForCard(card.id!);
+      cards.add(card);
     }
     return cards;
   }

@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
-import 'package:projects/screens/media/video_player_screen.dart';
+import 'package:video_player/video_player.dart';
 
 class TrainingScreen extends StatefulWidget {
   final List<VocabCard> cards;
@@ -18,11 +18,19 @@ class _TrainingScreenState extends State<TrainingScreen> {
   int _currentIndex = 0;
   bool _showAnswer = false;
   late List<VocabCard> _trainingDeck;
+  VideoPlayerController? _videoController;
 
   @override
   void initState() {
     super.initState();
     _trainingDeck = _createTrainingDeck(widget.cards);
+    _initializeVideoPlayer();
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
   }
 
   List<VocabCard> _createTrainingDeck(List<VocabCard> cards) {
@@ -42,9 +50,23 @@ class _TrainingScreenState extends State<TrainingScreen> {
     return cards;
   }
 
+  void _initializeVideoPlayer() {
+    final card = _trainingDeck.isNotEmpty ? _trainingDeck[_currentIndex] : null;
+    if (card != null && card.mediaPath != null && card.mediaPath!.endsWith('.mp4')) {
+      _videoController = VideoPlayerController.file(File(card.mediaPath!))
+        ..initialize().then((_) {
+          setState(() {});
+        });
+    } else {
+      _videoController = null;
+    }
+  }
+
   void _showNextCard() {
     setState(() {
       _showAnswer = false;
+      _videoController?.dispose();
+
       if (_currentIndex < _trainingDeck.length - 1) {
         _currentIndex++;
       } else {
@@ -53,6 +75,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
           const SnackBar(content: Text("You've completed the deck! Starting over.")),
         );
       }
+      _initializeVideoPlayer();
     });
   }
 
@@ -72,19 +95,10 @@ class _TrainingScreenState extends State<TrainingScreen> {
   Widget _buildMediaWidget(VocabCard card) {
     if (card.mediaPath == null) return const SizedBox.shrink();
 
-    if (card.mediaPath!.endsWith('.mp4')) {
-      return ElevatedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => VideoPlayerScreen(videoPath: card.mediaPath!, title: card.title)),
-          );
-        },
-        icon: const Icon(Icons.play_circle_outline),
-        label: const Text('Play Video'),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
+    if (_videoController != null && _videoController!.value.isInitialized) {
+      return AspectRatio(
+        aspectRatio: _videoController!.value.aspectRatio,
+        child: VideoPlayer(_videoController!),
       );
     } else if (File(card.mediaPath!).existsSync()) {
       return ConstrainedBox(
@@ -94,7 +108,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
         child: Image.file(File(card.mediaPath!)),
       );
     }
-    return const SizedBox.shrink();
+    return const Center(child: CircularProgressIndicator());
   }
 
   @override
@@ -112,52 +126,62 @@ class _TrainingScreenState extends State<TrainingScreen> {
       appBar: AppBar(
         title: const Text('Training Mode'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              currentCard.title,
-              style: Theme.of(context).textTheme.headlineMedium,
-              textAlign: TextAlign.center,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_showAnswer)
+                  Column(
+                    children: [
+                      Text(
+                        currentCard.title,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        currentCard.description,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 24),
+                if (_showAnswer)
+                  Column(
+                    children: [
+                      _buildMediaWidget(currentCard),
+                      const SizedBox(height: 32),
+                      const Text("How did you do?"),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(5, (index) {
+                          final rating = index + 1;
+                          return IconButton(
+                            icon: Icon(
+                              rating <= currentCard.rating ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 32,
+                            ),
+                            onPressed: () => _updateCardRating(rating),
+                          );
+                        }),
+                      ),
+                    ],
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: () => setState(() => _showAnswer = true),
+                    child: const Text('Show Answer'),
+                  ),
+              ],
             ),
-            const SizedBox(height: 24),
-            if (_showAnswer)
-              Column(
-                children: [
-                  _buildMediaWidget(currentCard),
-                  const SizedBox(height: 16),
-                  Text(
-                    currentCard.description,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  const Text("How did you do?"),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(5, (index) {
-                      final rating = index + 1;
-                      return IconButton(
-                        icon: Icon(
-                          rating <= currentCard.rating ? Icons.star : Icons.star_border,
-                          color: Colors.amber,
-                          size: 32,
-                        ),
-                        onPressed: () => _updateCardRating(rating),
-                      );
-                    }),
-                  ),
-                ],
-              )
-            else
-              ElevatedButton(
-                onPressed: () => setState(() => _showAnswer = true),
-                child: const Text('Show Answer'),
-              ),
-          ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
