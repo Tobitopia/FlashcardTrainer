@@ -5,6 +5,7 @@ class VocabCard {
   String? mediaPath;
   List<String> labels;
   int rating;
+  DateTime? lastTrained;
   int? setId; // The ID of the set this card belongs to
 
   VocabCard({
@@ -14,6 +15,7 @@ class VocabCard {
     this.mediaPath,
     this.labels = const [],
     this.rating = 0,
+    this.lastTrained,
     this.setId,
   });
 
@@ -24,7 +26,8 @@ class VocabCard {
       'description': description,
       'mediaPath': mediaPath,
       'rating': rating,
-      'setId': setId, // Add setId to the map
+      'lastTrained': lastTrained?.millisecondsSinceEpoch,
+      'setId': setId,
     };
   }
 
@@ -35,7 +38,10 @@ class VocabCard {
       description: map['description'],
       mediaPath: map['mediaPath'],
       rating: map['rating'],
-      setId: map['setId'], // Get setId from the map
+      lastTrained: map['lastTrained'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['lastTrained'])
+          : null,
+      setId: map['setId'],
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/screens/training/training_screen.dart';
 import 'package:projects/widgets/card_tile.dart';
 import 'package:projects/screens/media/video_player_screen.dart';
 
@@ -23,6 +24,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   String _searchQuery = '';
   double _minRating = 0.0;
   final Set<String> _selectedLabels = {};
+  List<VocabCard> _filteredCards = [];
 
   @override
   void initState() {
@@ -370,7 +372,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                   final allCardsInSet = snapshot.data!;
                   final labelsInSet = allCardsInSet.expand((card) => card.labels).toSet().toList();
 
-                  final filteredCards = allCardsInSet.where((card) {
+                  _filteredCards = allCardsInSet.where((card) {
                     final ratingMatch = card.rating >= _minRating.round();
                     final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
                     final query = _searchQuery.toLowerCase();
@@ -395,11 +397,11 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                           ),
                         ),
                       Expanded(
-                        child: filteredCards.isEmpty
+                        child: _filteredCards.isEmpty
                             ? const Center(child: Text("No cards match your filters."))
                             : GridView.count(
                                 crossAxisCount: 2,
-                                children: filteredCards.map((c) => InkWell(
+                                children: _filteredCards.map((c) => InkWell(
                                   onTap: () => _viewCard(c),
                                   onLongPress: () => _showOptionsDialog(c),
                                   child: CardTile(card: c),
@@ -414,9 +416,32 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addOrEditCard(),
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: () {
+              if (_filteredCards.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => TrainingScreen(cards: _filteredCards)),
+                ).then((_) => _loadCards());
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("No cards to train with the current filters!")),
+                );
+              }
+            },
+            heroTag: 'train', // heroTag is needed when you have multiple FABs
+            child: const Icon(Icons.play_arrow),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            onPressed: () => _addOrEditCard(),
+            heroTag: 'add', // heroTag is needed when you have multiple FABs
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }

@@ -4,9 +4,10 @@ import 'package:projects/models/vocab_set.dart';
 import 'package:projects/screens/all_cards/all_cards_screen.dart';
 import 'package:projects/screens/sets/sets_screen.dart';
 import 'package:projects/screens/stats/stats_screen.dart';
+import 'package:projects/screens/training/training_screen.dart';
 
-// The GlobalKey now uses the public SetsScreenState
 final GlobalKey<SetsScreenState> setsScreenKey = GlobalKey<SetsScreenState>();
+final GlobalKey<AllCardsScreenState> allCardsScreenKey = GlobalKey<AllCardsScreenState>();
 
 class NavigationBarScreen extends StatefulWidget {
   const NavigationBarScreen({super.key});
@@ -18,16 +19,14 @@ class NavigationBarScreen extends StatefulWidget {
 class _NavigationBarScreen extends State<NavigationBarScreen> {
   int _selectedIndex = 0;
 
-  // The list of widgets is now initialized in initState to use the key
   late final List<Widget> _widgetOptions;
 
   @override
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      // The obsolete onAddSet parameter has been removed
       SetsScreen(key: setsScreenKey),
-      const AllCardsScreen(),
+      AllCardsScreen(key: allCardsScreenKey),
       const StatsScreen(),
     ];
   }
@@ -67,6 +66,20 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     }
   }
 
+  void _startAllCardsTraining() {
+    final filteredCards = allCardsScreenKey.currentState?.filteredCards ?? [];
+    if (filteredCards.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TrainingScreen(cards: filteredCards)),
+      ).then((_) => allCardsScreenKey.currentState?.loadData());
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No cards to train with the current filters!")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,7 +108,12 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
               onPressed: _addSet,
               child: const Icon(Icons.add),
             )
-          : null,
+          : _selectedIndex == 1
+              ? FloatingActionButton(
+                  onPressed: _startAllCardsTraining,
+                  child: const Icon(Icons.play_arrow),
+                )
+              : null,
     );
   }
 }

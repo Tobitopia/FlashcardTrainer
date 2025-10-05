@@ -11,10 +11,12 @@ class AllCardsScreen extends StatefulWidget {
   const AllCardsScreen({super.key});
 
   @override
-  State<AllCardsScreen> createState() => _AllCardsScreenState();
+  // The state class is now public
+  AllCardsScreenState createState() => AllCardsScreenState();
 }
 
-class _AllCardsScreenState extends State<AllCardsScreen> {
+// The state class is now public
+class AllCardsScreenState extends State<AllCardsScreen> {
   late Future<List<VocabCard>> _allCardsFuture;
   late Future<List<String>> _allLabelsFuture;
   final dbHelper = DatabaseHelper.instance;
@@ -23,11 +25,15 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
   String _searchQuery = '';
   double _minRating = 0.0;
   final Set<String> _selectedLabels = {};
+  List<VocabCard> _filteredCards = []; // To store the filtered cards
+
+  // Public getter for the filtered cards
+  List<VocabCard> get filteredCards => _filteredCards;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    loadData();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
@@ -41,7 +47,7 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
     super.dispose();
   }
 
-  void _loadData() {
+  void loadData() {
     setState(() {
       _allCardsFuture = dbHelper.getAllCards();
       _allLabelsFuture = dbHelper.getAllLabels();
@@ -165,7 +171,7 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
 
     if (result != null) {
       await dbHelper.updateCard(result);
-      _loadData();
+      loadData();
     }
   }
 
@@ -234,7 +240,7 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
     );
     if (confirmed == true) {
       await dbHelper.deleteCard(cardId);
-      _loadData();
+      loadData();
     }
   }
 
@@ -383,7 +389,7 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
                 return const Center(child: Text("No cards found."));
               } else {
                 final allCards = snapshot.data!;
-                final filteredCards = allCards.where((card) {
+                _filteredCards = allCards.where((card) {
                   final ratingMatch = card.rating >= _minRating.round();
                   final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
                   final query = _searchQuery.toLowerCase();
@@ -393,13 +399,13 @@ class _AllCardsScreenState extends State<AllCardsScreen> {
                   return ratingMatch && labelMatch && searchMatch;
                 }).toList();
 
-                if (filteredCards.isEmpty) {
+                if (_filteredCards.isEmpty) {
                   return const Center(child: Text("No cards match your filters."));
                 }
 
                 return GridView.count(
                   crossAxisCount: 2,
-                  children: filteredCards.map((c) => InkWell(
+                  children: _filteredCards.map((c) => InkWell(
                     onTap: () => _viewCard(c),
                     onLongPress: () => _showOptionsDialog(c),
                     child: CardTile(card: c),

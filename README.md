@@ -35,7 +35,8 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
 
 - **Floating Action Button (FAB)**
     - On **Sets** screen → Add a new set.
-    - Inside a set → Add a new card.
+    - Inside a set → Add a new card or start a training session.
+    - On **All Cards** screen → Start a training session.
 
 ## Project Milestones
 
@@ -43,6 +44,7 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
 - [x] Define `VocabCard` and `VocabSet` classes.
 - [x] Add methods for update, filter, and statistics.
 - [x] **Update `VocabCard` to support media (title, description, mediaPath).**
+- [x] **Update `VocabCard` to include `lastTrained` for smart training.**
 
 ### UI: Navigation
 - [x] Implement `BottomNavigationBar` with three tabs: Sets, All Cards, Stats.
@@ -55,21 +57,21 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
 - [x] Navigate into a set detail screen.
 - [x] **Add media cards to a set (title, description, video, labels, rating).**
 - [x] **Edit and Delete cards via long-press menu.**
-- [ ] Filter cards by labels.
-- [ ] Start training from a filtered set.
+- [x] Filter cards by labels.
+- [x] Start training from a filtered set.
 
 ### UI: All Cards
 - [x] List all cards across sets.
 - [x] Filter by labels.
-- [ ] Start training.
+- [x] Start training.
 
 ### UI: Training
-- [ ] Simple mode: show card front, flip to back.
-- [ ] Add rating buttons (1–5).
-- [ ] Implement order-by strategies:
+- [x] Simple mode: show card front, flip to back.
+- [x] Add rating buttons (1–5).
+- [x] Implement order-by strategies:
     - [ ] Sequential
-    - [ ] By rating
-    - [ ] By time not seen
+    - [x] By rating
+    - [x] By time not seen
     - [ ] Intelligent (future work)
 
 ### UI: Stats
@@ -82,3 +84,4 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
 - [x] Implement full CRUD (Create, Read, Update, Delete) for Sets and Cards.
 - [x] Implement labeling system in the database.
 - [x] **Update database schema to support media cards.**
+- [x] **Update database schema to include `lastTrained` for smart training.**
