@@ -2,9 +2,10 @@ class VocabCard {
   int? id;
   String title;
   String description;
-  String? mediaPath; // Path to the video or image file
+  String? mediaPath;
   List<String> labels;
   int rating;
+  int? setId; // The ID of the set this card belongs to
 
   VocabCard({
     this.id,
@@ -13,6 +14,7 @@ class VocabCard {
     this.mediaPath,
     this.labels = const [],
     this.rating = 0,
+    this.setId,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +24,7 @@ class VocabCard {
       'description': description,
       'mediaPath': mediaPath,
       'rating': rating,
+      'setId': setId, // Add setId to the map
     };
   }
 
@@ -32,6 +35,7 @@ class VocabCard {
       description: map['description'],
       mediaPath: map['mediaPath'],
       rating: map['rating'],
+      setId: map['setId'], // Get setId from the map
     );
   }
 }

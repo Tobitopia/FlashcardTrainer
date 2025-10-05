@@ -59,11 +59,16 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
 
   void _addOrEditCard([VocabCard? card]) async {
     final isEditing = card != null;
+    // --- Fetch all sets for the dropdown ---
+    final allSets = await dbHelper.getAllSets();
+
     final titleController = TextEditingController(text: card?.title ?? '');
     final descriptionController = TextEditingController(text: card?.description ?? '');
     final labels = List<String>.from(card?.labels ?? []);
     var rating = (card?.rating ?? 0).toDouble();
     String? mediaPath = card?.mediaPath;
+    // --- State for the selected set ID ---
+    int? selectedSetId = card?.setId ?? widget.vocabSet.id;
 
     final result = await showDialog<VocabCard>(
       context: context,
@@ -78,6 +83,23 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                   children: [
                     TextField(controller: titleController, decoration: const InputDecoration(labelText: "Title")),
                     TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
+                    // --- Dropdown to Move Set ---
+                    if (isEditing)
+                      DropdownButtonFormField<int>(
+                        value: selectedSetId,
+                        items: allSets.map((set) {
+                          return DropdownMenuItem<int>(
+                            value: set.id,
+                            child: Text(set.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedSetId = value;
+                          });
+                        },
+                        decoration: const InputDecoration(labelText: 'Move to Set'),
+                      ),
                     const SizedBox(height: 16),
                     if (mediaPath != null)
                       Row(
@@ -124,6 +146,8 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                           mediaPath: mediaPath,
                           labels: labels,
                           rating: rating.round(),
+                          // --- Pass the selected set ID to the card ---
+                          setId: selectedSetId,
                         ),
                       );
                     }
@@ -141,7 +165,8 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       if (isEditing) {
         await dbHelper.updateCard(result);
       } else {
-        await dbHelper.insertCard(result, widget.vocabSet.id!);
+        // For new cards, use the current set's ID
+        await dbHelper.insertCard(result, selectedSetId ?? widget.vocabSet.id!);
       }
       _loadCards();
     }

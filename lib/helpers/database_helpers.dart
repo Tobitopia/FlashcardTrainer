@@ -18,8 +18,6 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // To handle schema changes, you can increment the version and use onUpgrade,
-    // but for this tutorial, simply uninstalling the app is the easiest way.
     return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
@@ -53,6 +51,8 @@ class DatabaseHelper {
     ''');
   }
 
+  // --- Set Methods ---
+
   Future<int> insertSet(VocabSet set) async {
     final db = await instance.database;
     return await db.insert('sets', set.toMap());
@@ -75,10 +75,22 @@ class DatabaseHelper {
     return sets;
   }
 
+  Future<int> updateSet(VocabSet set) async {
+    final db = await instance.database;
+    return await db.update(
+      'sets',
+      set.toMap(),
+      where: 'id = ?',
+      whereArgs: [set.id],
+    );
+  }
+
   Future<int> deleteSet(int id) async {
     final db = await instance.database;
     return await db.delete('sets', where: 'id = ?', whereArgs: [id]);
   }
+
+  // --- Card Methods ---
 
   Future<int> insertCard(VocabCard card, int setId) async {
     final db = await instance.database;
