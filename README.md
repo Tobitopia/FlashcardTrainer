@@ -31,7 +31,7 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
 - **Bottom Navigation**
     - **Sets**: Create and manage sets, add media cards, and start training.
     - **All Cards**: Browse all cards across all sets, with label filtering.
-    - **Stats**: (Future Work) Visualize progress and rating distribution.
+    - **Stats**: Visualize progress and rating distribution.
 
 - **Floating Action Button (FAB)**
     - On **Sets** screen → Add a new set.
@@ -75,8 +75,8 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
     - [ ] Intelligent (future work)
 
 ### UI: Stats
-- [ ] Collect card statistics.
-- [ ] Display rating distribution in chart.
+- [x] Collect card statistics.
+- [x] Display rating distribution in chart.
 - [ ] Show progress over time.
 
 ### Database
