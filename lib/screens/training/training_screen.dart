@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
+import 'package:projects/screens/media/video_player_screen.dart';
 
 class TrainingScreen extends StatefulWidget {
   final List<VocabCard> cards;
@@ -26,23 +28,16 @@ class _TrainingScreenState extends State<TrainingScreen> {
   List<VocabCard> _createTrainingDeck(List<VocabCard> cards) {
     final random = Random();
     cards.sort((a, b) {
-      // Prioritize lower ratings
       int ratingCompare = a.rating.compareTo(b.rating);
-      if (ratingCompare != 0) {
-        return ratingCompare;
-      }
+      if (ratingCompare != 0) return ratingCompare;
 
-      // Prioritize cards that haven't been trained recently
       DateTime now = DateTime.now();
       DateTime lastTrainedA = a.lastTrained ?? now.subtract(const Duration(days: 365));
       DateTime lastTrainedB = b.lastTrained ?? now.subtract(const Duration(days: 365));
       int timeCompare = lastTrainedA.compareTo(lastTrainedB);
-      if (timeCompare != 0) {
-        return timeCompare;
-      }
+      if (timeCompare != 0) return timeCompare;
 
-      // Finally, add some randomness
-      return random.nextInt(3) - 1; // -1, 0, or 1
+      return random.nextInt(3) - 1;
     });
     return cards;
   }
@@ -53,8 +48,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
       if (_currentIndex < _trainingDeck.length - 1) {
         _currentIndex++;
       } else {
-        // Optionally, loop or end the session
-        _currentIndex = 0; // Simple loop for now
+        _currentIndex = 0;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("You've completed the deck! Starting over.")),
         );
@@ -64,10 +58,43 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
   void _updateCardRating(int rating) async {
     final card = _trainingDeck[_currentIndex];
-    card.rating = rating;
+    setState(() {
+      card.rating = rating;
+    });
     card.lastTrained = DateTime.now();
     await DatabaseHelper.instance.updateCard(card);
+
+    await Future.delayed(const Duration(milliseconds: 400));
+
     _showNextCard();
+  }
+
+  Widget _buildMediaWidget(VocabCard card) {
+    if (card.mediaPath == null) return const SizedBox.shrink();
+
+    if (card.mediaPath!.endsWith('.mp4')) {
+      return ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => VideoPlayerScreen(videoPath: card.mediaPath!, title: card.title)),
+          );
+        },
+        icon: const Icon(Icons.play_circle_outline),
+        label: const Text('Play Video'),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      );
+    } else if (File(card.mediaPath!).existsSync()) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.3,
+        ),
+        child: Image.file(File(card.mediaPath!)),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -100,6 +127,8 @@ class _TrainingScreenState extends State<TrainingScreen> {
             if (_showAnswer)
               Column(
                 children: [
+                  _buildMediaWidget(currentCard),
+                  const SizedBox(height: 16),
                   Text(
                     currentCard.description,
                     style: Theme.of(context).textTheme.bodyLarge,
