@@ -18,7 +18,7 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgradeDB);
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -32,9 +32,11 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE cards(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        front TEXT NOT NULL,
-        back TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        mediaPath TEXT,
         rating INTEGER NOT NULL,
+        lastTrained INTEGER,
         setId INTEGER NOT NULL,
         FOREIGN KEY (setId) REFERENCES sets (id) ON DELETE CASCADE
       )
@@ -49,6 +51,14 @@ class DatabaseHelper {
       )
     ''');
   }
+
+  Future<void> _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+        await db.execute("ALTER TABLE cards ADD COLUMN lastTrained INTEGER");
+    }
+  }
+
+  // --- Set Methods ---
 
   Future<int> insertSet(VocabSet set) async {
     final db = await instance.database;
@@ -72,10 +82,22 @@ class DatabaseHelper {
     return sets;
   }
 
+  Future<int> updateSet(VocabSet set) async {
+    final db = await instance.database;
+    return await db.update(
+      'sets',
+      set.toMap(),
+      where: 'id = ?',
+      whereArgs: [set.id],
+    );
+  }
+
   Future<int> deleteSet(int id) async {
     final db = await instance.database;
     return await db.delete('sets', where: 'id = ?', whereArgs: [id]);
   }
+
+  // --- Card Methods ---
 
   Future<int> insertCard(VocabCard card, int setId) async {
     final db = await instance.database;
@@ -100,14 +122,8 @@ class DatabaseHelper {
     List<VocabCard> cards = [];
     for (var cardMap in cardMaps) {
       final card = VocabCard.fromMap(cardMap);
-      final cardLabels = await _getLabelsForCard(card.id!);
-      cards.add(VocabCard(
-        id: card.id,
-        front: card.front,
-        back: card.back,
-        rating: card.rating,
-        labels: cardLabels,
-      ));
+      card.labels = await _getLabelsForCard(card.id!);
+      cards.add(card);
     }
     return cards;
   }
@@ -160,14 +176,8 @@ class DatabaseHelper {
     List<VocabCard> cards = [];
     for (var cardMap in cardMaps) {
       final card = VocabCard.fromMap(cardMap);
-      final cardLabels = await _getLabelsForCard(card.id!);
-      cards.add(VocabCard(
-        id: card.id,
-        front: card.front,
-        back: card.back,
-        rating: card.rating,
-        labels: cardLabels,
-      ));
+      card.labels = await _getLabelsForCard(card.id!);
+      cards.add(card);
     }
     return cards;
   }
