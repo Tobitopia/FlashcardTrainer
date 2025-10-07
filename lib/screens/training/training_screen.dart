@@ -51,10 +51,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
   }
 
   void _initializeVideoPlayer() {
+    _videoController?.dispose();
     final card = _trainingDeck.isNotEmpty ? _trainingDeck[_currentIndex] : null;
     if (card != null && card.mediaPath != null && card.mediaPath!.endsWith('.mp4')) {
       _videoController = VideoPlayerController.file(File(card.mediaPath!))
         ..initialize().then((_) {
+          // Ensure the first frame is shown after the video is initialized
           setState(() {});
         });
     } else {
@@ -65,8 +67,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
   void _showNextCard() {
     setState(() {
       _showAnswer = false;
-      _videoController?.dispose();
-
+      
       if (_currentIndex < _trainingDeck.length - 1) {
         _currentIndex++;
       } else {
@@ -96,9 +97,30 @@ class _TrainingScreenState extends State<TrainingScreen> {
     if (card.mediaPath == null) return const SizedBox.shrink();
 
     if (_videoController != null && _videoController!.value.isInitialized) {
-      return AspectRatio(
-        aspectRatio: _videoController!.value.aspectRatio,
-        child: VideoPlayer(_videoController!),
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            if (_videoController!.value.isPlaying) {
+              _videoController!.pause();
+            } else {
+              _videoController!.play();
+            }
+          });
+        },
+        child: AspectRatio(
+          aspectRatio: _videoController!.value.aspectRatio,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoPlayer(_videoController!),
+              if (!_videoController!.value.isPlaying)
+                Container(
+                  color: Colors.black.withOpacity(0.5),
+                  child: const Icon(Icons.play_arrow, color: Colors.white, size: 70),
+                ),
+            ],
+          ),
+        ),
       );
     } else if (File(card.mediaPath!).existsSync()) {
       return ConstrainedBox(
