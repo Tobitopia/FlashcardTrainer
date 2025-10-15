@@ -167,7 +167,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        currentCard.description,
+                        currentCard.description ?? '',
                         style: Theme.of(context).textTheme.bodyLarge,
                         textAlign: TextAlign.center,
                       ),

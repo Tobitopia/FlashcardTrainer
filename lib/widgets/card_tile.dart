@@ -100,7 +100,7 @@ class _CardTileState extends State<CardTile> {
                   children: [
                     Text(widget.card.title, style: Theme.of(context).textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    Text(widget.card.description, style: Theme.of(context).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(widget.card.description ?? '', style: Theme.of(context).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
                     if (widget.card.labels.isNotEmpty)
                       Wrap(

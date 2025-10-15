@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
-import 'package:projects/models/vocab_set.dart'; // Import VocabSet
+import 'package:projects/models/vocab_set.dart';
 import 'package:projects/widgets/card_tile.dart';
 import 'package:projects/screens/media/video_player_screen.dart';
 
@@ -11,11 +11,9 @@ class AllCardsScreen extends StatefulWidget {
   const AllCardsScreen({super.key});
 
   @override
-  // The state class is now public
   AllCardsScreenState createState() => AllCardsScreenState();
 }
 
-// The state class is now public
 class AllCardsScreenState extends State<AllCardsScreen> {
   late Future<List<VocabCard>> _allCardsFuture;
   late Future<List<String>> _allLabelsFuture;
@@ -25,9 +23,8 @@ class AllCardsScreenState extends State<AllCardsScreen> {
   String _searchQuery = '';
   double _minRating = 0.0;
   final Set<String> _selectedLabels = {};
-  List<VocabCard> _filteredCards = []; // To store the filtered cards
+  List<VocabCard> _filteredCards = [];
 
-  // Public getter for the filtered cards
   List<VocabCard> get filteredCards => _filteredCards;
 
   @override
@@ -68,16 +65,14 @@ class AllCardsScreenState extends State<AllCardsScreen> {
     final isEditing = card != null;
     if (!isEditing) return;
 
-    // --- Fetch all sets for the dropdown ---
     final allSets = await dbHelper.getAllSets();
 
-    final titleController = TextEditingController(text: card?.title ?? '');
-    final descriptionController = TextEditingController(text: card?.description ?? '');
-    final labels = List<String>.from(card?.labels ?? []);
-    var rating = (card?.rating ?? 0).toDouble();
-    String? mediaPath = card?.mediaPath;
-    // --- State for the selected set ID ---
-    int? selectedSetId = card?.setId;
+    final titleController = TextEditingController(text: card.title);
+    final descriptionController = TextEditingController(text: card.description ?? '');
+    final labels = List<String>.from(card.labels);
+    var rating = (card.rating).toDouble();
+    String? mediaPath = card.mediaPath;
+    int? selectedSetId = card.setId;
 
     final result = await showDialog<VocabCard>(
       context: context,
@@ -92,7 +87,6 @@ class AllCardsScreenState extends State<AllCardsScreen> {
                   children: [
                     TextField(controller: titleController, decoration: const InputDecoration(labelText: "Title")),
                     TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
-                    // --- Dropdown to Move Set ---
                     DropdownButtonFormField<int>(
                       value: selectedSetId,
                       items: allSets.map((set) {
@@ -144,17 +138,16 @@ class AllCardsScreenState extends State<AllCardsScreen> {
                 TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
                 TextButton(
                   onPressed: () {
-                    if (titleController.text.isNotEmpty && descriptionController.text.isNotEmpty) {
+                    if (titleController.text.isNotEmpty) {
                       Navigator.pop(
                         ctx,
                         VocabCard(
-                          id: card!.id,
+                          id: card.id,
                           title: titleController.text,
                           description: descriptionController.text,
                           mediaPath: mediaPath,
                           labels: labels,
                           rating: rating.round(),
-                          // --- Pass the selected set ID to the card ---
                           setId: selectedSetId,
                         ),
                       );
@@ -216,7 +209,7 @@ class AllCardsScreenState extends State<AllCardsScreen> {
               children: [
                 if (card.mediaPath != null && File(card.mediaPath!).existsSync()) Image.file(File(card.mediaPath!)),
                 const SizedBox(height: 8),
-                Text(card.description),
+                Text(card.description ?? ''),
               ],
             ),
           ),
@@ -395,7 +388,7 @@ class AllCardsScreenState extends State<AllCardsScreen> {
                   final query = _searchQuery.toLowerCase();
                   final searchMatch = query.isEmpty ||
                       card.title.toLowerCase().contains(query) ||
-                      card.description.toLowerCase().contains(query);
+                      (card.description?.toLowerCase().contains(query) ?? false);
                   return ratingMatch && labelMatch && searchMatch;
                 }).toList();
 
