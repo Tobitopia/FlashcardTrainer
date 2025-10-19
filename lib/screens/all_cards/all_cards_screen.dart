@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
-import 'package:projects/models/vocab_set.dart';
 import 'package:projects/widgets/card_tile.dart';
 import 'package:projects/screens/media/video_player_screen.dart';
 
