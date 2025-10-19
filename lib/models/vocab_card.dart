@@ -1,7 +1,7 @@
 class VocabCard {
   int? id;
   String title;
-  String description;
+  String? description;
   String? mediaPath;
   List<String> labels;
   int rating;
@@ -11,7 +11,7 @@ class VocabCard {
   VocabCard({
     this.id,
     required this.title,
-    required this.description,
+    this.description,
     this.mediaPath,
     this.labels = const [],
     this.rating = 0,

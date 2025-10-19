@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:projects/models/vocab_set.dart';
 import 'package:projects/screens/training/training_screen.dart';
+import 'package:projects/widgets/add_edit_card_dialog.dart';
 import 'package:projects/widgets/card_tile.dart';
 import 'package:projects/screens/media/video_player_screen.dart';
 
@@ -60,125 +60,23 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   }
 
   void _addOrEditCard([VocabCard? card]) async {
-    final isEditing = card != null;
-    // --- Fetch all sets for the dropdown ---
-    final allSets = await dbHelper.getAllSets();
-
-    final titleController = TextEditingController(text: card?.title ?? '');
-    final descriptionController = TextEditingController(text: card?.description ?? '');
-    final labels = List<String>.from(card?.labels ?? []);
-    var rating = (card?.rating ?? 0).toDouble();
-    String? mediaPath = card?.mediaPath;
-    // --- State for the selected set ID ---
-    int? selectedSetId = card?.setId ?? widget.vocabSet.id;
-
     final result = await showDialog<VocabCard>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(isEditing ? "Edit Card" : "New Card"),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(controller: titleController, decoration: const InputDecoration(labelText: "Title")),
-                    TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
-                    // --- Dropdown to Move Set ---
-                    if (isEditing)
-                      DropdownButtonFormField<int>(
-                        value: selectedSetId,
-                        items: allSets.map((set) {
-                          return DropdownMenuItem<int>(
-                            value: set.id,
-                            child: Text(set.name),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedSetId = value;
-                          });
-                        },
-                        decoration: const InputDecoration(labelText: 'Move to Set'),
-                      ),
-                    const SizedBox(height: 16),
-                    if (mediaPath != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                          const SizedBox(width: 8),
-                          const Expanded(child: Text("Video selected", style: TextStyle(fontStyle: FontStyle.italic))),
-                          IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
-                            onPressed: () => setState(() => mediaPath = null),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                      )
-                    else
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          TextButton.icon(onPressed: () => _pickMedia(ImageSource.gallery, (path) => setState(() => mediaPath = path)), icon: const Icon(Icons.photo_library), label: const Text("Gallery")),
-                          TextButton.icon(onPressed: () => _pickMedia(ImageSource.camera, (path) => setState(() => mediaPath = path)), icon: const Icon(Icons.camera_alt), label: const Text("Camera")),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8.0,
-                      children: labels.map((label) => Chip(label: Text(label), onDeleted: () => setState(() => labels.remove(label)))).toList(),
-                    ),
-                    TextButton.icon(onPressed: () => _addLabel(labels, setState), icon: const Icon(Icons.add), label: const Text("Add Label")),
-                    Slider(value: rating, onChanged: (newRating) => setState(() => rating = newRating), min: 0, max: 5, divisions: 5, label: rating.round().toString()),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                TextButton(
-                  onPressed: () {
-                    if (titleController.text.isNotEmpty && descriptionController.text.isNotEmpty) {
-                      Navigator.pop(
-                        ctx,
-                        VocabCard(
-                          id: card?.id,
-                          title: titleController.text,
-                          description: descriptionController.text,
-                          mediaPath: mediaPath,
-                          labels: labels,
-                          rating: rating.round(),
-                          // --- Pass the selected set ID to the card ---
-                          setId: selectedSetId,
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(isEditing ? "Save" : "Add"),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (ctx) => AddEditCardDialog(
+        card: card,
+        vocabSet: widget.vocabSet,
+        dbHelper: dbHelper,
+      ),
     );
 
     if (result != null) {
+      final isEditing = card != null;
       if (isEditing) {
         await dbHelper.updateCard(result);
       } else {
-        // For new cards, use the current set's ID
-        await dbHelper.insertCard(result, selectedSetId ?? widget.vocabSet.id!);
+        await dbHelper.insertCard(result, result.setId ?? widget.vocabSet.id!);
       }
       _loadCards();
-    }
-  }
-
-  Future<void> _pickMedia(ImageSource source, Function(String path) onPicked) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickVideo(source: source);
-    if (pickedFile != null) {
-      onPicked(pickedFile.path);
     }
   }
 
@@ -215,7 +113,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
               children: [
                 if (card.mediaPath != null && File(card.mediaPath!).existsSync()) Image.file(File(card.mediaPath!)),
                 const SizedBox(height: 8),
-                Text(card.description),
+                Text(card.description ?? ''),
               ],
             ),
           ),
@@ -241,81 +139,6 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       await dbHelper.deleteCard(cardId);
       _loadCards();
     }
-  }
-
-  void _addLabel(List<String> labels, StateSetter setState) async {
-    final labelController = TextEditingController();
-    final allLabels = await dbHelper.getAllLabels();
-
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (dialogContext, dialogSetState) {
-            return AlertDialog(
-              title: const Text("Add Label"),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: labelController,
-                      decoration: InputDecoration(
-                        labelText: "New Label",
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () {
-                            final newLabel = labelController.text;
-                            if (newLabel.isNotEmpty && !labels.contains(newLabel)) {
-                              setState(() {
-                                labels.add(newLabel);
-                              });
-                              dialogSetState(() {});
-                              labelController.clear();
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (allLabels.isNotEmpty) ...[
-                      const Text("Or select existing:"),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8.0,
-                        children: allLabels.map((label) {
-                          final isSelected = labels.contains(label);
-                          return FilterChip(
-                            label: Text(label),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  labels.add(label);
-                                } else {
-                                  labels.remove(label);
-                                }
-                              });
-                              dialogSetState(() {});
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ]
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text("Done"),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
@@ -365,7 +188,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
-                  return Center(child: Text("Error: \${snapshot.error}"));
+                  return Center(child: Text("Error: ${snapshot.error}"));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(child: Text("No cards yet. Add one!"));
                 } else {
@@ -378,7 +201,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                     final query = _searchQuery.toLowerCase();
                     final searchMatch = query.isEmpty ||
                         card.title.toLowerCase().contains(query) ||
-                        card.description.toLowerCase().contains(query);
+                        (card.description?.toLowerCase().contains(query) ?? false);
                     return ratingMatch && labelMatch && searchMatch;
                   }).toList();
 
@@ -432,13 +255,13 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                 );
               }
             },
-            heroTag: 'train', // heroTag is needed when you have multiple FABs
+            heroTag: 'train',
             child: const Icon(Icons.play_arrow),
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
             onPressed: () => _addOrEditCard(),
-            heroTag: 'add', // heroTag is needed when you have multiple FABs
+            heroTag: 'add',
             child: const Icon(Icons.add),
           ),
         ],
