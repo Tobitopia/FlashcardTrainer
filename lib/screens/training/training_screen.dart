@@ -148,15 +148,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
       appBar: AppBar(
         title: const Text('Training Mode'),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+      body: SingleChildScrollView( // <--- Now this is the direct child of body
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
                 if (!_showAnswer)
                   Column(
                     children: [
@@ -205,7 +204,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
             ),
           ),
         ),
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showNextCard,
         child: const Icon(Icons.arrow_forward),

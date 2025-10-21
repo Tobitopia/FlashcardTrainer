@@ -165,8 +165,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text('Min Rating: ${_minRating.round()}'),
-                    Expanded(
+                    Text('Level: ${_minRating.round() == 0 ? 'Any' : _minRating.round()}'),                    Expanded(
                       child: Slider(
                         value: _minRating,
                         onChanged: (newRating) => setState(() => _minRating = newRating),
@@ -195,8 +194,9 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                   final allCardsInSet = snapshot.data!;
                   final labelsInSet = allCardsInSet.expand((card) => card.labels).toSet().toList();
 
+                  final rating = _minRating.round();
                   _filteredCards = allCardsInSet.where((card) {
-                    final ratingMatch = card.rating >= _minRating.round();
+                    final ratingMatch = rating == 0 || card.rating == rating; // <-- NEW LOGIC
                     final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
                     final query = _searchQuery.toLowerCase();
                     final searchMatch = query.isEmpty ||

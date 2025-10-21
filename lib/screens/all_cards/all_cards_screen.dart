@@ -87,7 +87,7 @@ class AllCardsScreenState extends State<AllCardsScreen> {
                     TextField(controller: titleController, decoration: const InputDecoration(labelText: "Title")),
                     TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
                     DropdownButtonFormField<int>(
-                      value: selectedSetId,
+                      initialValue: selectedSetId,
                       items: allSets.map((set) {
                         return DropdownMenuItem<int>(
                           value: set.id,
@@ -333,8 +333,7 @@ class AllCardsScreenState extends State<AllCardsScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text('Min Rating: ${_minRating.round()}'),
-                  Expanded(
+                  Text('Level: ${_minRating.round() == 0 ? 'Any' : _minRating.round()}'),                   Expanded(
                     child: Slider(
                       value: _minRating,
                       onChanged: (newRating) => setState(() => _minRating = newRating),
@@ -381,8 +380,9 @@ class AllCardsScreenState extends State<AllCardsScreen> {
                 return const Center(child: Text("No cards found."));
               } else {
                 final allCards = snapshot.data!;
+                final rating = _minRating.round();
                 _filteredCards = allCards.where((card) {
-                  final ratingMatch = card.rating >= _minRating.round();
+                  final ratingMatch = rating == 0 || card.rating == rating;
                   final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
                   final query = _searchQuery.toLowerCase();
                   final searchMatch = query.isEmpty ||
