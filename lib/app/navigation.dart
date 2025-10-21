@@ -19,16 +19,24 @@ class NavigationBarScreen extends StatefulWidget {
 class _NavigationBarScreen extends State<NavigationBarScreen> {
   int _selectedIndex = 0;
 
+  late final PageController _pageController;
   late final List<Widget> _widgetOptions;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _widgetOptions = <Widget>[
       SetsScreen(key: setsScreenKey),
       AllCardsScreen(key: allCardsScreenKey),
       const StatsScreen(),
     ];
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   static const List<String> _appBarTitles = <String>[
@@ -38,9 +46,11 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
   }
 
   void _addSet() async {
@@ -90,7 +100,15 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
+      body: PageView(
+        controller: _pageController,
+        children: _widgetOptions,
+        onPageChanged: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.folder_copy_outlined), label: 'Sets'),

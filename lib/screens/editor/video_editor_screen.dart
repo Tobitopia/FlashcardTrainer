@@ -72,7 +72,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       endTimeMs: _trimValues.end.toInt(),
     ).export(onProgress: (progress) {
       // You can use this to show a progress bar
-      print('Export progress: ${(progress * 100).toStringAsFixed(1)}%');
     });
 
     setState(() {
