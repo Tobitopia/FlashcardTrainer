@@ -1,5 +1,8 @@
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 import '../models/vocab_set.dart';
 import '../models/vocab_card.dart';
 
@@ -17,7 +20,7 @@ class DatabaseHelper {
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+    final path = p.join(dbPath, filePath);
     final db = await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgradeDB);
     await db.execute('PRAGMA foreign_keys = ON');
     return db;
@@ -60,11 +63,55 @@ class DatabaseHelper {
     }
   }
 
+  /// Helper method to download a file from a URL and save it locally.
+  Future<String?> _downloadAndSaveMedia(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final directory = await getApplicationDocumentsDirectory();
+        final fileName = p.basename(url).split('?').first; // Get original filename
+        final localPath = p.join(directory.path, fileName);
+        final file = File(localPath);
+        await file.writeAsBytes(response.bodyBytes);
+        return localPath;
+      }
+      return null;
+    } catch (e) {
+      print("Error downloading media: $e");
+      return null;
+    }
+  }
+
   // --- Set Methods ---
 
   Future<int> insertSet(VocabSet set) async {
     final db = await instance.database;
     return await db.insert('sets', set.toMap());
+  }
+
+  Future<void> importSet(VocabSet set) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      int newSetId = await txn.insert('sets', {'name': set.name});
+
+      for (VocabCard card in set.cards) {
+        if (card.mediaPath != null && card.mediaPath!.startsWith('http')) {
+          final localPath = await _downloadAndSaveMedia(card.mediaPath!);
+          card.mediaPath = localPath; 
+        }
+
+        final cardMap = card.toMap();
+        cardMap['setId'] = newSetId;
+
+        int newCardId = await txn.insert('cards', cardMap);
+        
+        final batch = txn.batch();
+        for (final label in card.labels) {
+          batch.insert('labels', {'name': label, 'cardId': newCardId});
+        }
+        await batch.commit(noResult: true);
+      }
+    });
   }
 
   Future<List<VocabSet>> getAllSets() async {

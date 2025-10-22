@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_set.dart';
@@ -5,9 +6,11 @@ import 'package:projects/screens/all_cards/all_cards_screen.dart';
 import 'package:projects/screens/sets/sets_screen.dart';
 import 'package:projects/screens/stats/stats_screen.dart';
 import 'package:projects/screens/training/training_screen.dart';
+import 'package:projects/services/cloud_service.dart';
+import 'package:app_links/app_links.dart'; // Import the new package
 
 final GlobalKey<SetsScreenState> setsScreenKey = GlobalKey<SetsScreenState>();
-final GlobalKey<AllCardsScreenState> allCardsScreenKey = GlobalKey<AllCardsScreenState>();
+final GlobalKey<AllCardsScreenState> allCardsScreen_key = GlobalKey<AllCardsScreenState>();
 
 class NavigationBarScreen extends StatefulWidget {
   const NavigationBarScreen({super.key});
@@ -18,9 +21,9 @@ class NavigationBarScreen extends StatefulWidget {
 
 class _NavigationBarScreen extends State<NavigationBarScreen> {
   int _selectedIndex = 0;
-
   late final PageController _pageController;
   late final List<Widget> _widgetOptions;
+  StreamSubscription<Uri>? _linkSubscription; // Changed to use app_links's stream
 
   @override
   void initState() {
@@ -28,15 +31,30 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     _pageController = PageController();
     _widgetOptions = <Widget>[
       SetsScreen(key: setsScreenKey),
-      AllCardsScreen(key: allCardsScreenKey),
+      AllCardsScreen(key: allCardsScreen_key),
       const StatsScreen(),
     ];
+    _initAppLinks(); // Changed the method name for clarity
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _linkSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _initAppLinks() async {
+    final appLinks = AppLinks(); // Use the AppLinks class
+
+    _linkSubscription = appLinks.uriLinkStream.listen((uri) {
+      if (mounted) {
+        final setId = uri.queryParameters['set'];
+        if (setId != null) {
+          _showImportDialog(prefilledId: setId);
+        }
+      }
+    });
   }
 
   static const List<String> _appBarTitles = <String>[
@@ -76,13 +94,65 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     }
   }
 
+  void _showImportDialog({String? prefilledId}) {
+    final controller = TextEditingController(text: prefilledId);
+    final cloudService = CloudService();
+    final dbHelper = DatabaseHelper.instance;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Import Set'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Paste Set ID or use link'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final setId = controller.text.trim();
+              if (setId.isNotEmpty) {
+                final vocabSet = await cloudService.downloadVocabSet(setId);
+                if (vocabSet != null) {
+                  await dbHelper.importSet(vocabSet);
+                  setsScreenKey.currentState?.reloadSets();
+                  if (mounted) Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("'${vocabSet.name}' imported successfully!"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  if (mounted) Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Import failed. Check the ID and try again."),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _startAllCardsTraining() {
-    final filteredCards = allCardsScreenKey.currentState?.filteredCards ?? [];
+    final filteredCards = allCardsScreen_key.currentState?.filteredCards ?? [];
     if (filteredCards.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => TrainingScreen(cards: filteredCards)),
-      ).then((_) => allCardsScreenKey.currentState?.loadData());
+      ).then((_) => allCardsScreen_key.currentState?.loadData());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No cards to train with the current filters!")),
@@ -122,9 +192,21 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
         onTap: _onItemTapped,
       ),
       floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(
-              onPressed: _addSet,
-              child: const Icon(Icons.add),
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FloatingActionButton.small(
+                  onPressed: _showImportDialog,
+                  tooltip: 'Import Set',
+                  child: const Icon(Icons.cloud_download_outlined),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton(
+                  onPressed: _addSet,
+                  tooltip: 'Add New Set',
+                  child: const Icon(Icons.add),
+                ),
+              ],
             )
           : _selectedIndex == 1
               ? FloatingActionButton(
