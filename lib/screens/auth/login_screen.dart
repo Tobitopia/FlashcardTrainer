@@ -9,14 +9,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Create an instance of the AuthService
   final AuthService _authService = AuthService();
-
-  // Create TextEditingControllers to get the text from the fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // Remember to dispose of controllers when the widget is removed
+  String? _errorMessage; // State variable for error messages
+  bool _isPasswordVisible = false; // State variable for password visibility
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -28,15 +27,24 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login or Register'),
+        // Removed title here to make space for the main title in the body
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const Text(
+              'Build your repertoire!',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
             TextField(
-              controller: _emailController, // Attach the controller
+              controller: _emailController,
               decoration: const InputDecoration(
                 labelText: 'Email',
               ),
@@ -44,15 +52,37 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: _passwordController, // Attach the controller
-              decoration: const InputDecoration(
+              controller: _passwordController,
+              decoration: InputDecoration(
                 labelText: 'Password',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
               ),
-              obscureText: true,
+              obscureText: !_isPasswordVisible, // Use the state variable here
             ),
+            if (_errorMessage != null) // Display error message if present
+              Padding(
+                padding: const EdgeInsets.only(top: 10.0),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () async { // Make the function async
+              onPressed: () async {
+                setState(() {
+                  _errorMessage = null; // Clear previous error
+                });
                 final email = _emailController.text;
                 final password = _passwordController.text;
                 final userCredential = await _authService.signInWithEmailAndPassword(email, password);
@@ -60,14 +90,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   print('Login Successful: ${userCredential.user?.email}');
                   // TODO: Navigate to the main app screen
                 } else {
+                  setState(() {
+                    _errorMessage = 'Login failed. Please check your credentials.';
+                  });
                   print('Login Failed');
-                  // TODO: Show an error message to the user
                 }
               },
               child: const Text('Login'),
             ),
             TextButton(
-              onPressed: () async { // Make the function async
+              onPressed: () async {
+                setState(() {
+                  _errorMessage = null; // Clear previous error
+                });
                 final email = _emailController.text;
                 final password = _passwordController.text;
                 final userCredential = await _authService.createUserWithEmailAndPassword(email, password);
@@ -75,8 +110,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   print('Registration Successful: ${userCredential.user?.email}');
                   // TODO: Navigate to the main app screen
                 } else {
+                  setState(() {
+                    _errorMessage = 'Registration failed. Please try again.';
+                  });
                   print('Registration Failed');
-                  // TODO: Show an error message to the user
                 }
               },
               child: const Text('Register'),

@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 class CloudService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance; // Add Firebase Storage instance
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   /// Helper method to upload a file to Cloud Storage and get its URL
   Future<String?> _uploadMediaFile(String filePath, String setId) async {
@@ -43,35 +43,52 @@ class CloudService {
     }
   }
 
-  Future<String?> uploadVocabSet(VocabSet vocabSet) async {
+  // New method: Handles both initial upload and updating an existing set
+  Future<String?> uploadOrUpdateVocabSet(VocabSet vocabSet, {String? existingCloudId}) async {
     final User? currentUser = _auth.currentUser;
     if (currentUser == null) {
-      print("No user logged in to upload a set.");
+      print("No user logged in to upload/update a set.");
       return null;
     }
 
     try {
       final CollectionReference setsCollection = _firestore.collection('sets');
-      DocumentReference setDocRef = setsCollection.doc();
+      DocumentReference setDocRef;
 
-      Map<String, dynamic> setData = {
-        'ownerId': currentUser.uid,
-        'ownerEmail': currentUser.email,
-        'setName': vocabSet.name,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      await setDocRef.set(setData);
+      if (existingCloudId != null) {
+        // Update existing set
+        setDocRef = setsCollection.doc(existingCloudId);
+        await setDocRef.update({
+          'ownerId': currentUser.uid,
+          'ownerEmail': currentUser.email,
+          'setName': vocabSet.name,
+          'updatedAt': FieldValue.serverTimestamp(), // Add an update timestamp
+        });
+        // For simplicity, delete all existing cards and re-add them
+        QuerySnapshot currentCards = await setDocRef.collection('cards').get();
+        for (DocumentSnapshot doc in currentCards.docs) {
+          await doc.reference.delete();
+        }
+      } else {
+        // Upload new set
+        setDocRef = setsCollection.doc();
+        await setDocRef.set({
+          'ownerId': currentUser.uid,
+          'ownerEmail': currentUser.email,
+          'setName': vocabSet.name,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       CollectionReference cardsCollection = setDocRef.collection('cards');
       for (VocabCard card in vocabSet.cards) {
-        String? mediaUrl;
-        // If the card has a local media path, upload the file
-        if (card.mediaPath != null && card.mediaPath!.isNotEmpty) {
-          mediaUrl = await _uploadMediaFile(card.mediaPath!, setDocRef.id);
+        String? mediaUrl = card.mediaPath; // Start with current mediaPath
+        
+        // Only upload if it's a local file path (not an already uploaded URL)
+        if (mediaUrl != null && !mediaUrl.startsWith('http')) {
+          mediaUrl = await _uploadMediaFile(mediaUrl, setDocRef.id);
         }
 
-        // Save the card data, including the new mediaUrl if it exists
         await cardsCollection.add({
           'title': card.title,
           'description': card.description,
@@ -81,10 +98,10 @@ class CloudService {
         });
       }
 
-      print('Set uploaded successfully! Set ID: ${setDocRef.id}');
+      print('Set uploaded/updated successfully! Set ID: ${setDocRef.id}');
       return setDocRef.id;
     } catch (e) {
-      print('Error uploading set: $e');
+      print('Error uploading/updating set: $e');
       return null;
     }
   }
@@ -97,7 +114,7 @@ class CloudService {
         return null;
       }
 
-      final set = VocabSet(name: setDoc['setName']);
+      final set = VocabSet(name: setDoc['setName'], cloudId: setDoc.id, isSynced: true); // Include cloudId and set as synced
       QuerySnapshot cardsSnapshot = await _firestore.collection('sets').doc(setId).collection('cards').get();
 
       for (var cardDoc in cardsSnapshot.docs) {
@@ -107,8 +124,7 @@ class CloudService {
           description: cardData['description'],
           labels: List<String>.from(cardData['labels'] ?? []),
           rating: cardData['rating'] ?? 0,
-          // We now get the mediaUrl from Firestore
-          mediaPath: cardData['mediaUrl'], // Temporarily store URL in mediaPath
+          mediaPath: cardData['mediaUrl'],
         ));
       }
 

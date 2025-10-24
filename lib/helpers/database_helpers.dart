@@ -21,7 +21,8 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, filePath);
-    final db = await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgradeDB);
+    // Increment database version for schema changes
+    final db = await openDatabase(path, version: 3, onCreate: _createDB, onUpgrade: _onUpgradeDB);
     await db.execute('PRAGMA foreign_keys = ON');
     return db;
   }
@@ -30,7 +31,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE sets(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        cloudId TEXT,
+        isSynced INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
@@ -61,6 +64,11 @@ class DatabaseHelper {
     if (oldVersion < 2) {
         await db.execute("ALTER TABLE cards ADD COLUMN lastTrained INTEGER");
     }
+    // Add cloudId and isSynced columns for database version 3
+    if (oldVersion < 3) {
+      await db.execute("ALTER TABLE sets ADD COLUMN cloudId TEXT");
+      await db.execute("ALTER TABLE sets ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1");
+    }
   }
 
   /// Helper method to download a file from a URL and save it locally.
@@ -86,13 +94,15 @@ class DatabaseHelper {
 
   Future<int> insertSet(VocabSet set) async {
     final db = await instance.database;
+    // Ensure to include cloudId and isSynced in the map
     return await db.insert('sets', set.toMap());
   }
 
   Future<void> importSet(VocabSet set) async {
     final db = await instance.database;
     await db.transaction((txn) async {
-      int newSetId = await txn.insert('sets', {'name': set.name});
+      // When importing, the set is considered synced from the cloud
+      int newSetId = await txn.insert('sets', {'name': set.name, 'cloudId': set.cloudId, 'isSynced': 1});
 
       for (VocabCard card in set.cards) {
         if (card.mediaPath != null && card.mediaPath!.startsWith('http')) {
@@ -133,11 +143,34 @@ class DatabaseHelper {
 
   Future<int> updateSet(VocabSet set) async {
     final db = await instance.database;
+    // Ensure to include cloudId and isSynced in the map for update
     return await db.update(
       'sets',
       set.toMap(),
       where: 'id = ?',
       whereArgs: [set.id],
+    );
+  }
+
+  // New: Update a set's cloudId and isSynced status after cloud operation
+  Future<int> updateSetCloudStatus(int setId, String cloudId, {bool isSynced = true}) async {
+    final db = await instance.database;
+    return await db.update(
+      'sets',
+      {'cloudId': cloudId, 'isSynced': isSynced ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [setId],
+    );
+  }
+
+  // New: Mark a set as unsynced when its content changes
+  Future<int> markSetAsUnsynced(int setId) async {
+    final db = await instance.database;
+    return await db.update(
+      'sets',
+      {'isSynced': 0},
+      where: 'id = ?',
+      whereArgs: [setId],
     );
   }
 
@@ -154,9 +187,8 @@ class DatabaseHelper {
     cardMap['setId'] = setId;
 
     final cardId = await db.insert('cards', cardMap);
-
     await _insertLabels(card.labels, cardId);
-
+    await markSetAsUnsynced(setId); // Mark set as unsynced when a card is added
     return cardId;
   }
 
@@ -179,7 +211,23 @@ class DatabaseHelper {
 
   Future<int> deleteCard(int id) async {
     final db = await instance.database;
-    return await db.delete('cards', where: 'id = ?', whereArgs: [id]);
+    // First, get the setId before deleting the card to mark the set as unsynced
+    final List<Map<String, dynamic>> cards = await db.query(
+      'cards',
+      columns: ['setId'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    int? setId;
+    if (cards.isNotEmpty) {
+      setId = cards.first['setId'] as int;
+    }
+
+    final result = await db.delete('cards', where: 'id = ?', whereArgs: [id]);
+    if (setId != null) {
+      await markSetAsUnsynced(setId); // Mark set as unsynced when a card is deleted
+    }
+    return result;
   }
 
   Future<int> updateCard(VocabCard card) async {
@@ -194,6 +242,21 @@ class DatabaseHelper {
 
     await db.delete('labels', where: 'cardId = ?', whereArgs: [card.id]);
     await _insertLabels(card.labels, card.id!);
+    
+    // Get setId for the updated card to mark the parent set as unsynced
+    final List<Map<String, dynamic>> cards = await db.query(
+      'cards',
+      columns: ['setId'],
+      where: 'id = ?',
+      whereArgs: [card.id],
+    );
+    int? setId;
+    if (cards.isNotEmpty) {
+      setId = cards.first['setId'] as int;
+    }
+    if (setId != null) {
+      await markSetAsUnsynced(setId); // Mark set as unsynced when a card is updated
+    }
 
     return result;
   }
