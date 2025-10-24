@@ -19,6 +19,8 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late VideoPlayerController _controller;
   late Future<void> _initializeVideoPlayerFuture;
+  double _currentPlaybackSpeed = 1.0;
+
 
   @override
   void initState() {
@@ -103,6 +105,34 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               Text(
                 _formatDuration(_controller.value.position),
                 style: const TextStyle(color: Colors.white),
+              ),
+              // Playback speed button
+              PopupMenuButton<double>(
+                initialValue: _currentPlaybackSpeed,
+                onSelected: (speed) {
+                  setState(() {
+                    _currentPlaybackSpeed = speed;
+                    _controller.setPlaybackSpeed(speed);
+                  });
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 0.25, child: Text("0.25x")),
+                  const PopupMenuItem(value: 0.5, child: Text("0.5x")),
+                  const PopupMenuItem(value: 1.0, child: Text("1.0x")),
+                  const PopupMenuItem(value: 1.5, child: Text("1.5x")),
+                  const PopupMenuItem(value: 2.0, child: Text("2.0x")),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    '${_currentPlaybackSpeed}x',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
               ),
               // Play/Pause button in the middle
               IconButton(

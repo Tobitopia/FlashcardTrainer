@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/screens/editor/video_editor_screen.dart';
 
 class AddEditCardDialog extends StatefulWidget {
   final VocabCard? card;
@@ -60,10 +62,19 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
   Future<void> _pickMedia(ImageSource source) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickVideo(source: source);
-    if (pickedFile != null) {
-      setState(() {
-        mediaPath = pickedFile.path;
-      });
+
+    if (pickedFile != null && mounted) {
+      final editedFile = await Navigator.of(context).push<File>(
+        MaterialPageRoute(
+          builder: (_) => VideoEditorScreen(video: File(pickedFile.path)),
+        ),
+      );
+
+      if (editedFile != null) {
+        setState(() {
+          mediaPath = editedFile.path;
+        });
+      }
     }
   }
   
@@ -154,7 +165,7 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
             TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
             if (isEditing)
               DropdownButtonFormField<int>(
-                value: selectedSetId,
+                initialValue: selectedSetId,
                 items: allSets.map((set) {
                   return DropdownMenuItem<int>(
                     value: set.id,

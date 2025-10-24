@@ -19,6 +19,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
   bool _showAnswer = false;
   late List<VocabCard> _trainingDeck;
   VideoPlayerController? _videoController;
+  double _currentPlaybackSpeed = 1.0; // Added for playback speed
 
   @override
   void initState() {
@@ -59,6 +60,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
           // Ensure the first frame is shown after the video is initialized
           setState(() {});
         });
+      // Add a listener to rebuild the UI on video position changes
+      _videoController!.addListener(() {
+        setState(() {});
+      });
+      _videoController!.setLooping(true); // Loop video by default
+      _videoController!.setPlaybackSpeed(_currentPlaybackSpeed); // Set initial playback speed
     } else {
       _videoController = null;
     }
@@ -93,34 +100,112 @@ class _TrainingScreenState extends State<TrainingScreen> {
     _showNextCard();
   }
 
+  // Helper to format duration into MM:SS
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return [if (duration.inHours > 0) hours, minutes, seconds].join(':');
+  }
+
   Widget _buildMediaWidget(VocabCard card) {
     if (card.mediaPath == null) return const SizedBox.shrink();
 
     if (_videoController != null && _videoController!.value.isInitialized) {
-      return GestureDetector(
-        onTap: () {
-          setState(() {
-            if (_videoController!.value.isPlaying) {
-              _videoController!.pause();
-            } else {
-              _videoController!.play();
-            }
-          });
-        },
-        child: AspectRatio(
-          aspectRatio: _videoController!.value.aspectRatio,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              VideoPlayer(_videoController!),
-              if (!_videoController!.value.isPlaying)
-                Container(
-                  color: Colors.black.withOpacity(0.5),
-                  child: const Icon(Icons.play_arrow, color: Colors.white, size: 70),
+      return Column(
+        children: [
+          AspectRatio(
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(_videoController!),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (_videoController!.value.isPlaying) {
+                        _videoController!.pause();
+                      } else {
+                        _videoController!.play();
+                      }
+                    });
+                  },
+                  child: Center(
+                    child: _videoController!.value.isPlaying
+                        ? const SizedBox.shrink()
+                        : Container(
+                            color: Colors.black.withOpacity(0.5),
+                            child: const Icon(Icons.play_arrow, color: Colors.white, size: 70),
+                          ),
+                  ),
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
+          Container(
+            color: Colors.black.withOpacity(0.5),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                VideoProgressIndicator(
+                  _videoController!,
+                  allowScrubbing: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatDuration(_videoController!.value.position),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    PopupMenuButton<double>(
+                      initialValue: _currentPlaybackSpeed,
+                      onSelected: (speed) {
+                        setState(() {
+                          _currentPlaybackSpeed = speed;
+                          _videoController!.setPlaybackSpeed(speed);
+                        });
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(value: 0.25, child: Text("0.25x")),
+                        const PopupMenuItem(value: 0.5, child: Text("0.5x")),
+                        const PopupMenuItem(value: 1.0, child: Text("1.0x")),
+                        const PopupMenuItem(value: 1.5, child: Text("1.5x")),
+                        const PopupMenuItem(value: 2.0, child: Text("2.0x")),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          '${_currentPlaybackSpeed}x',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(_videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                      onPressed: () {
+                        setState(() {
+                          _videoController!.value.isPlaying ? _videoController!.pause() : _videoController!.play();
+                        });
+                      },
+                    ),
+                    Text(
+                      _formatDuration(_videoController!.value.duration),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       );
     } else if (File(card.mediaPath!).existsSync()) {
       return ConstrainedBox(
@@ -148,15 +233,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
       appBar: AppBar(
         title: const Text('Training Mode'),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+      body: SingleChildScrollView( // <--- Now this is the direct child of body
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
                 if (!_showAnswer)
                   Column(
                     children: [
@@ -205,7 +289,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
             ),
           ),
         ),
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showNextCard,
         child: const Icon(Icons.arrow_forward),
