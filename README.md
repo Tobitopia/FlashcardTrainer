@@ -85,3 +85,23 @@ A dynamic and media-rich vocabulary training application built with Flutter. Thi
 - [x] Implement labeling system in the database.
 - [x] **Update database schema to support media cards.**
 - [x] **Update database schema to include `lastTrained` for smart training.**
+
+## Future Feature: Cloud Sync & Sharing
+
+This feature will allow users to upload their vocabulary sets to the cloud and share them with others via a unique link.
+
+### 1. Backend Setup & Authentication
+- [x] **Choose a Backend:** Firebase is the primary candidate due to its strong Flutter integration.
+- [x] **Set up Authentication:** Implement email/password login and registration. This is necessary to associate cloud sets with a user account.
+- [x] **Create a Login/Register Screen:** Build the UI for users to sign in or create an account.
+
+### 2. Cloud Storage for Sets
+- [x] **Set up Cloud Database:** Use Firebase Firestore to store `VocabSet` and `VocabCard` data.
+- [x] **Develop Cloud Service:** Create a `cloud_services.dart` file to handle communication between the app and Firestore.
+- [x] **Implement "Upload" Functionality:** Add a UI element (e.g., a "share" button) that allows a logged-in user to upload a local set to their cloud account.
+
+### 3. Sharing & Importing
+- [x] **Generate Sharable Links:** For each uploaded set, create a unique identifier and a corresponding link.
+- [x] **Implement Deep Linking:** Configure the app to recognize when it's opened via a shared link.
+- [x] **Implement "Import" Functionality:** When the app is opened with a link, it should fetch the set from the cloud and save it to the user's local SQLite database.
+- [x] **Handle Media Files:** Devise a strategy for uploading and downloading associated images/videos (e.g., using Firebase Cloud Storage).

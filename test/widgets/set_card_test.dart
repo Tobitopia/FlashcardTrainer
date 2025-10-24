@@ -11,7 +11,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: SetCard(set: vocabSet, onTap: () {}, onLongPress: () {}),
+            body: SetCard(set: vocabSet, onTap: () {}, onLongPress: () {}, onUpload: () {}),
           ),
         ),
       );
@@ -31,6 +31,7 @@ void main() {
               set: vocabSet,
               onTap: () => tapped = true,
               onLongPress: () {},
+              onUpload: () {},
             ),
           ),
         ),
@@ -51,6 +52,7 @@ void main() {
               set: vocabSet,
               onTap: () {},
               onLongPress: () => longPressed = true,
+              onUpload: () {},
             ),
           ),
         ),

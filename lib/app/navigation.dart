@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:projects/helpers/database_helpers.dart';
 import 'package:projects/models/vocab_set.dart';
@@ -5,9 +6,11 @@ import 'package:projects/screens/all_cards/all_cards_screen.dart';
 import 'package:projects/screens/sets/sets_screen.dart';
 import 'package:projects/screens/stats/stats_screen.dart';
 import 'package:projects/screens/training/training_screen.dart';
+import 'package:projects/services/cloud_service.dart';
+import 'package:app_links/app_links.dart';
 
 final GlobalKey<SetsScreenState> setsScreenKey = GlobalKey<SetsScreenState>();
-final GlobalKey<AllCardsScreenState> allCardsScreenKey = GlobalKey<AllCardsScreenState>();
+final GlobalKey<AllCardsScreenState> allCardsScreen_key = GlobalKey<AllCardsScreenState>();
 
 class NavigationBarScreen extends StatefulWidget {
   const NavigationBarScreen({super.key});
@@ -18,9 +21,9 @@ class NavigationBarScreen extends StatefulWidget {
 
 class _NavigationBarScreen extends State<NavigationBarScreen> {
   int _selectedIndex = 0;
-
   late final PageController _pageController;
   late final List<Widget> _widgetOptions;
+  StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
@@ -28,15 +31,56 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     _pageController = PageController();
     _widgetOptions = <Widget>[
       SetsScreen(key: setsScreenKey),
-      AllCardsScreen(key: allCardsScreenKey),
+      AllCardsScreen(key: allCardsScreen_key),
       const StatsScreen(),
     ];
+    _initAppLinks();
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _linkSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _initAppLinks() async {
+    final appLinks = AppLinks();
+    final cloudService = CloudService();
+    final dbHelper = DatabaseHelper.instance;
+
+    _linkSubscription = appLinks.uriLinkStream.listen((uri) async {
+      if (mounted) {
+        final setId = uri.queryParameters['set'];
+        if (setId != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Importing set with ID: $setId...")),
+          );
+          final vocabSet = await cloudService.downloadVocabSet(setId);
+          if (vocabSet != null) {
+            await dbHelper.importSet(vocabSet);
+            setsScreenKey.currentState?.reloadSets();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("'${vocabSet.name}' imported successfully!"),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Import failed. Check the link and try again."),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      }
+    });
   }
 
   static const List<String> _appBarTitles = <String>[
@@ -77,12 +121,12 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   }
 
   void _startAllCardsTraining() {
-    final filteredCards = allCardsScreenKey.currentState?.filteredCards ?? [];
+    final filteredCards = allCardsScreen_key.currentState?.filteredCards ?? [];
     if (filteredCards.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => TrainingScreen(cards: filteredCards)),
-      ).then((_) => allCardsScreenKey.currentState?.loadData());
+      ).then((_) => allCardsScreen_key.currentState?.loadData());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No cards to train with the current filters!")),
@@ -124,6 +168,7 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: _addSet,
+              tooltip: 'Add New Set',
               child: const Icon(Icons.add),
             )
           : _selectedIndex == 1
