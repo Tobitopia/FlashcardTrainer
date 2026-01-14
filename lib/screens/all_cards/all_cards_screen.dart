@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
+import 'package:projects/models/vocab_set.dart';
+import 'package:projects/repositories/card_repository.dart';
+import 'package:projects/repositories/label_repository.dart';
+import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/widgets/card_tile.dart';
 import 'package:projects/screens/media/video_player_screen.dart';
 
@@ -16,7 +20,11 @@ class AllCardsScreen extends StatefulWidget {
 class AllCardsScreenState extends State<AllCardsScreen> {
   late Future<List<VocabCard>> _allCardsFuture;
   late Future<List<String>> _allLabelsFuture;
-  final dbHelper = DatabaseHelper.instance;
+
+  // Repositories from locator
+  final ICardRepository _cardRepository = locator<ICardRepository>();
+  final ILabelRepository _labelRepository = locator<ILabelRepository>();
+  final ISetRepository _setRepository = locator<ISetRepository>();
 
   final _searchController = TextEditingController();
   String _searchQuery = '';
@@ -45,8 +53,8 @@ class AllCardsScreenState extends State<AllCardsScreen> {
 
   void loadData() {
     setState(() {
-      _allCardsFuture = dbHelper.getAllCards();
-      _allLabelsFuture = dbHelper.getAllLabels();
+      _allCardsFuture = _cardRepository.getAllCards();
+      _allLabelsFuture = _labelRepository.getAllLabels();
     });
   }
 
@@ -64,7 +72,7 @@ class AllCardsScreenState extends State<AllCardsScreen> {
     final isEditing = card != null;
     if (!isEditing) return;
 
-    final allSets = await dbHelper.getAllSets();
+    final allSets = await _setRepository.getAllSets();
 
     final titleController = TextEditingController(text: card.title);
     final descriptionController = TextEditingController(text: card.description ?? '');
@@ -162,7 +170,7 @@ class AllCardsScreenState extends State<AllCardsScreen> {
     );
 
     if (result != null) {
-      await dbHelper.updateCard(result);
+      await _cardRepository.updateCard(result);
       loadData();
     }
   }
@@ -231,14 +239,14 @@ class AllCardsScreenState extends State<AllCardsScreen> {
       ),
     );
     if (confirmed == true) {
-      await dbHelper.deleteCard(cardId);
+      await _cardRepository.deleteCard(cardId);
       loadData();
     }
   }
 
   void _addLabel(List<String> labels, StateSetter setState) async {
     final labelController = TextEditingController();
-    final allLabels = await dbHelper.getAllLabels();
+    final allLabels = await _labelRepository.getAllLabels();
 
     await showDialog(
       context: context,
@@ -333,7 +341,8 @@ class AllCardsScreenState extends State<AllCardsScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text('Level: ${_minRating.round() == 0 ? 'Any' : _minRating.round()}'),                   Expanded(
+                  Text('Level: ${_minRating.round() == 0 ? 'Any' : _minRating.round()}'),
+                  Expanded(
                     child: Slider(
                       value: _minRating,
                       onChanged: (newRating) => setState(() => _minRating = newRating),

@@ -25,6 +25,7 @@ dependencies:
   app_links: ^6.4.1 # Replaced uni_links with this line
   firebase_storage: ^13.0.3
   http: ^1.5.0
+  get_it: ^7.2.0
 
 dev_dependencies:
   integration_test:

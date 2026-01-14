@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/screens/all_cards/all_cards_screen.dart';
 import 'package:projects/screens/sets/sets_screen.dart';
 import 'package:projects/screens/stats/stats_screen.dart';
@@ -25,6 +26,11 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   late final List<Widget> _widgetOptions;
   StreamSubscription<Uri>? _linkSubscription;
 
+  // Dependencies from locator
+  final AppLinks _appLinks = locator<AppLinks>();
+  final CloudService _cloudService = locator<CloudService>();
+  final ISetRepository _setRepository = locator<ISetRepository>();
+
   @override
   void initState() {
     super.initState();
@@ -45,20 +51,16 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   }
 
   Future<void> _initAppLinks() async {
-    final appLinks = AppLinks();
-    final cloudService = CloudService();
-    final dbHelper = DatabaseHelper.instance;
-
-    _linkSubscription = appLinks.uriLinkStream.listen((uri) async {
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) async {
       if (mounted) {
         final setId = uri.queryParameters['set'];
         if (setId != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Importing set with ID: $setId...")),
           );
-          final vocabSet = await cloudService.downloadVocabSet(setId);
+          final vocabSet = await _cloudService.downloadVocabSet(setId);
           if (vocabSet != null) {
-            await dbHelper.importSet(vocabSet);
+            await _setRepository.importSet(vocabSet);
             setsScreenKey.currentState?.reloadSets();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -114,8 +116,7 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
       ),
     );
     if (result != null && result.isNotEmpty) {
-      final dbHelper = DatabaseHelper.instance;
-      await dbHelper.insertSet(VocabSet(name: result));
+      await _setRepository.insertSet(VocabSet(name: result));
       setsScreenKey.currentState?.reloadSets();
     }
   }

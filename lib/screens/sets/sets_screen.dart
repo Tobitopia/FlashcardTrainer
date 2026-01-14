@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/repositories/card_repository.dart';
+import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/screens/sets/set_detail_screen.dart';
 import 'package:projects/services/cloud_service.dart';
 import '../../widgets/set_tile.dart';
@@ -17,9 +19,12 @@ class SetsScreen extends StatefulWidget {
 
 class SetsScreenState extends State<SetsScreen> {
   late Future<List<VocabSet>> _setsFuture;
-  final dbHelper = DatabaseHelper.instance;
-  final _cloudService = CloudService();
-  final AuthService _authService = AuthService();
+
+  // Repositories and Services from locator
+  final ISetRepository _setRepository = locator<ISetRepository>();
+  final ICardRepository _cardRepository = locator<ICardRepository>();
+  final CloudService _cloudService = locator<CloudService>();
+  final AuthService _authService = locator<AuthService>();
 
   @override
   void initState() {
@@ -29,13 +34,13 @@ class SetsScreenState extends State<SetsScreen> {
 
   void reloadSets() {
     setState(() {
-      _setsFuture = dbHelper.getAllSets();
+      _setsFuture = _setRepository.getAllSets();
     });
   }
 
   void _loadSets() {
     setState(() {
-      _setsFuture = dbHelper.getAllSets();
+      _setsFuture = _setRepository.getAllSets();
     });
   }
 
@@ -85,14 +90,14 @@ class SetsScreenState extends State<SetsScreen> {
 
   // Updated: Handles both upload and update
   void _uploadSet(VocabSet set) async {
-    final cards = await dbHelper.getCardsForSet(set.id!);
+    final cards = await _cardRepository.getCardsForSet(set.id!);
     final fullSet = VocabSet(id: set.id, name: set.name, cards: cards, cloudId: set.cloudId);
 
     final String? newCloudId = await _cloudService.uploadOrUpdateVocabSet(fullSet, existingCloudId: set.cloudId);
 
     if (mounted && newCloudId != null) {
       // Update local database with the cloud ID and mark as synced
-      await dbHelper.updateSetCloudStatus(set.id!, newCloudId, isSynced: true);
+      await _setRepository.updateSetCloudStatus(set.id!, newCloudId, isSynced: true);
       reloadSets(); // Refresh UI to show the new sync status
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -155,9 +160,9 @@ class SetsScreenState extends State<SetsScreen> {
 
     if (newName != null && newName.isNotEmpty && newName != set.name) {
       final updatedSet = VocabSet(id: set.id, name: newName);
-      await dbHelper.updateSet(updatedSet);
+      await _setRepository.updateSet(updatedSet);
       // Mark as unsynced after a successful name change
-      await dbHelper.markSetAsUnsynced(set.id!);
+      await _setRepository.markSetAsUnsynced(set.id!);
       reloadSets();
     }
   }
@@ -179,7 +184,7 @@ class SetsScreenState extends State<SetsScreen> {
     );
 
     if (confirmed == true) {
-      await dbHelper.deleteSet(setId);
+      await _setRepository.deleteSet(setId);
       reloadSets();
     }
   }

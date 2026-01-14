@@ -1,8 +1,9 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
+import 'package:projects/repositories/card_repository.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -13,11 +14,12 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   late Future<List<VocabCard>> _cardsFuture;
+  final ICardRepository _cardRepository = locator<ICardRepository>();
 
   @override
   void initState() {
     super.initState();
-    _cardsFuture = DatabaseHelper.instance.getAllCards();
+    _cardsFuture = _cardRepository.getAllCards();
   }
 
   @override

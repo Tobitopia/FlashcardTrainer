@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
+import 'package:projects/repositories/card_repository.dart';
 import 'package:video_player/video_player.dart';
 
 class TrainingScreen extends StatefulWidget {
@@ -20,6 +21,8 @@ class _TrainingScreenState extends State<TrainingScreen> {
   late List<VocabCard> _trainingDeck;
   VideoPlayerController? _videoController;
   double _currentPlaybackSpeed = 1.0; // Added for playback speed
+
+  final ICardRepository _cardRepository = locator<ICardRepository>();
 
   @override
   void initState() {
@@ -93,7 +96,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
       card.rating = rating;
     });
     card.lastTrained = DateTime.now();
-    await DatabaseHelper.instance.updateCard(card);
+    await _cardRepository.updateCard(card);
 
     await Future.delayed(const Duration(milliseconds: 400));
 

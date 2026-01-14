@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/repositories/card_repository.dart';
 import 'package:projects/screens/training/training_screen.dart';
 import 'package:projects/widgets/add_edit_card_dialog.dart';
 import 'package:projects/widgets/card_tile.dart';
@@ -18,7 +19,9 @@ class SetDetailScreen extends StatefulWidget {
 
 class _SetDetailScreenState extends State<SetDetailScreen> {
   late Future<List<VocabCard>> _cardsFuture;
-  final dbHelper = DatabaseHelper.instance;
+
+  // Repositories from locator
+  final ICardRepository _cardRepository = locator<ICardRepository>();
 
   final _searchController = TextEditingController();
   String _searchQuery = '';
@@ -45,7 +48,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
 
   void _loadCards() {
     setState(() {
-      _cardsFuture = dbHelper.getCardsForSet(widget.vocabSet.id!);
+      _cardsFuture = _cardRepository.getCardsForSet(widget.vocabSet.id!);
     });
   }
 
@@ -65,16 +68,15 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       builder: (ctx) => AddEditCardDialog(
         card: card,
         vocabSet: widget.vocabSet,
-        dbHelper: dbHelper,
       ),
     );
 
     if (result != null) {
       final isEditing = card != null;
       if (isEditing) {
-        await dbHelper.updateCard(result);
+        await _cardRepository.updateCard(result);
       } else {
-        await dbHelper.insertCard(result, result.setId ?? widget.vocabSet.id!);
+        await _cardRepository.insertCard(result, result.setId ?? widget.vocabSet.id!);
       }
       _loadCards();
     }
@@ -136,7 +138,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       ),
     );
     if (confirmed == true) {
-      await dbHelper.deleteCard(cardId);
+      await _cardRepository.deleteCard(cardId);
       _loadCards();
     }
   }
@@ -165,7 +167,8 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text('Level: ${_minRating.round() == 0 ? 'Any' : _minRating.round()}'),                    Expanded(
+                    Text('Level: ${_minRating.round() == 0 ? 'Any' : _minRating.round()}'),
+                    Expanded(
                       child: Slider(
                         value: _minRating,
                         onChanged: (newRating) => setState(() => _minRating = newRating),

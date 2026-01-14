@@ -1,21 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:projects/helpers/database_helpers.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/repositories/label_repository.dart';
+import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/screens/editor/video_editor_screen.dart';
 
 class AddEditCardDialog extends StatefulWidget {
   final VocabCard? card;
   final VocabSet vocabSet;
-  final DatabaseHelper dbHelper;
 
   const AddEditCardDialog({
     super.key,
     this.card,
     required this.vocabSet,
-    required this.dbHelper,
   });
 
   @override
@@ -32,6 +32,10 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
   String? mediaPath;
   List<VocabSet> allSets = [];
 
+  // Repositories from locator
+  final ISetRepository _setRepository = locator<ISetRepository>();
+  final ILabelRepository _labelRepository = locator<ILabelRepository>();
+
   @override
   void initState() {
     super.initState();
@@ -45,10 +49,12 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
     selectedSetId = widget.card?.setId ?? widget.vocabSet.id;
 
     // Fetch all sets for the dropdown
-    widget.dbHelper.getAllSets().then((sets) {
-      setState(() {
-        allSets = sets;
-      });
+    _setRepository.getAllSets().then((sets) {
+      if (mounted) {
+        setState(() {
+          allSets = sets;
+        });
+      }
     });
   }
 
@@ -77,10 +83,10 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
       }
     }
   }
-  
+
   void _addLabel(StateSetter setState) async {
     final labelController = TextEditingController();
-    final allLabels = await widget.dbHelper.getAllLabels();
+    final allLabels = await _labelRepository.getAllLabels();
 
     await showDialog(
       context: context,
@@ -165,7 +171,7 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
             TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
             if (isEditing)
               DropdownButtonFormField<int>(
-                initialValue: selectedSetId,
+                value: allSets.any((s) => s.id == selectedSetId) ? selectedSetId : null,
                 items: allSets.map((set) {
                   return DropdownMenuItem<int>(
                     value: set.id,
