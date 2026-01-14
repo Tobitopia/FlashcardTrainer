@@ -14,6 +14,7 @@ class VideoEditorScreen extends StatefulWidget {
 class _VideoEditorScreenState extends State<VideoEditorScreen> {
   late VideoPlayerController _controller;
   late Duration _videoDuration;
+  late Duration _currentPosition;
   late RangeValues _trimValues;
 
   bool _isPlaying = false;
@@ -22,6 +23,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _currentPosition = Duration.zero;
     _controller = VideoPlayerController.file(widget.video)
       ..initialize().then((_) {
         setState(() {
@@ -31,6 +33,9 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       });
 
     _controller.addListener(() {
+      setState(() {
+        _currentPosition = _controller.value.position;
+      });
       if (_controller.value.position >= Duration(milliseconds: _trimValues.end.toInt())) {
         _controller.pause();
         setState(() {
@@ -135,6 +140,14 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
+                      Slider(
+                        value: _currentPosition.inMilliseconds.toDouble().clamp(0.0, _videoDuration.inMilliseconds.toDouble()),
+                        min: 0,
+                        max: _videoDuration.inMilliseconds.toDouble(),
+                        onChanged: (value) {
+                          _controller.seekTo(Duration(milliseconds: value.toInt()));
+                        },
+                      ),
                       RangeSlider(
                         values: _trimValues,
                         min: 0,
