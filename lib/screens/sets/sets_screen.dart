@@ -9,6 +9,7 @@ import 'package:projects/services/cloud_service.dart';
 import '../../widgets/set_tile.dart';
 import 'package:projects/services/auth_service.dart';
 import 'package:projects/screens/auth/login_screen.dart';
+import 'package:projects/models/visibility.dart' as model;
 
 class SetsScreen extends StatefulWidget {
   const SetsScreen({super.key});
@@ -87,11 +88,26 @@ class SetsScreenState extends State<SetsScreen> {
       _showShareDialog(set.cloudId!);
     }
   }
+  
+    void _onVisibilityChanged(VocabSet set, model.Visibility newVisibility) async {
+    final updatedSet = VocabSet(
+      id: set.id,
+      name: set.name,
+      cards: set.cards,
+      cloudId: set.cloudId,
+      isSynced: false, // Mark as unsynced
+      visibility: newVisibility,
+    );
+
+    await _setRepository.updateSet(updatedSet);
+    reloadSets(); // Refresh UI
+  }
+
 
   // Updated: Handles both upload and update
   void _uploadSet(VocabSet set) async {
     final cards = await _cardRepository.getCardsForSet(set.id!);
-    final fullSet = VocabSet(id: set.id, name: set.name, cards: cards, cloudId: set.cloudId);
+    final fullSet = VocabSet(id: set.id, name: set.name, cards: cards, cloudId: set.cloudId, visibility: set.visibility);
 
     final String? newCloudId = await _cloudService.uploadOrUpdateVocabSet(fullSet, existingCloudId: set.cloudId);
 
@@ -159,7 +175,7 @@ class SetsScreenState extends State<SetsScreen> {
     );
 
     if (newName != null && newName.isNotEmpty && newName != set.name) {
-      final updatedSet = VocabSet(id: set.id, name: newName);
+      final updatedSet = VocabSet(id: set.id, name: newName, visibility: set.visibility);
       await _setRepository.updateSet(updatedSet);
       // Mark as unsynced after a successful name change
       await _setRepository.markSetAsUnsynced(set.id!);
@@ -255,6 +271,7 @@ class SetsScreenState extends State<SetsScreen> {
                 onLongPress: () => _showSetOptionsDialog(s),
                 onUpload: () => _uploadSet(s),
                 onShare: () => _shareSetLink(s), // Pass the new share function
+                onVisibilityChanged: (newVisibility) => _onVisibilityChanged(s, newVisibility),
               )).toList(),
             );
           }

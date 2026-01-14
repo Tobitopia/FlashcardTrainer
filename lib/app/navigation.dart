@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_set.dart';
+import 'package:projects/models/visibility.dart' as model;
 import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/screens/all_cards/all_cards_screen.dart';
 import 'package:projects/screens/sets/sets_screen.dart';
@@ -99,24 +100,86 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     );
   }
 
+  String _visibilityToString(model.Visibility visibility) {
+    switch (visibility) {
+      case model.Visibility.private:
+        return 'Private (not shared)';
+      case model.Visibility.publicView:
+        return 'Anyone with the link can view';
+      case model.Visibility.publicCooperate:
+        return 'Anyone with the link can cooperate';
+    }
+  }
+
   void _addSet() async {
     final controller = TextEditingController();
-    final result = await showDialog<String>(
+    model.Visibility selectedVisibility = model.Visibility.private;
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("New Set"),
-        content: TextField(controller: controller, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text("Add"),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Create a New Set"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Set Name',
+                      hintText: 'Enter the name of your new set',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Sharing Options:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  DropdownButton<model.Visibility>(
+                    value: selectedVisibility,
+                    isExpanded: true,
+                    onChanged: (model.Visibility? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          selectedVisibility = newValue;
+                        });
+                      }
+                    },
+                    items: model.Visibility.values.map((model.Visibility visibility) {
+                      return DropdownMenuItem<model.Visibility>(
+                        value: visibility,
+                        child: Text(_visibilityToString(visibility)),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                TextButton(
+                  onPressed: () {
+                    if (controller.text.trim().isNotEmpty) {
+                      Navigator.pop(ctx, {
+                        'name': controller.text.trim(),
+                        'visibility': selectedVisibility,
+                      });
+                    }
+                  },
+                  child: const Text("Add"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    if (result != null && result.isNotEmpty) {
-      await _setRepository.insertSet(VocabSet(name: result));
+
+    if (result != null) {
+      final String name = result['name'];
+      final model.Visibility visibility = result['visibility'];
+      await _setRepository.insertSet(VocabSet(name: name, visibility: visibility));
       setsScreenKey.currentState?.reloadSets();
     }
   }

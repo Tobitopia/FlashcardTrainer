@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:projects/models/vocab_set.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:path/path.dart' as p;
+import 'package:projects/models/visibility.dart';
 
 class CloudService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -63,6 +64,7 @@ class CloudService {
           'ownerEmail': currentUser.email,
           'setName': vocabSet.name,
           'updatedAt': FieldValue.serverTimestamp(), // Add an update timestamp
+          'visibility': vocabSet.visibility.index,
         });
         // For simplicity, delete all existing cards and re-add them
         QuerySnapshot currentCards = await setDocRef.collection('cards').get();
@@ -77,6 +79,7 @@ class CloudService {
           'ownerEmail': currentUser.email,
           'setName': vocabSet.name,
           'createdAt': FieldValue.serverTimestamp(),
+          'visibility': vocabSet.visibility.index,
         });
       }
 
@@ -114,7 +117,14 @@ class CloudService {
         return null;
       }
 
-      final set = VocabSet(name: setDoc['setName'], cloudId: setDoc.id, isSynced: true); // Include cloudId and set as synced
+      final setData = setDoc.data() as Map<String, dynamic>;
+      final set = VocabSet(
+        name: setData['setName'], 
+        cloudId: setDoc.id, 
+        isSynced: true, 
+        visibility: Visibility.values[setData['visibility'] ?? 0]
+      ); 
+
       QuerySnapshot cardsSnapshot = await _firestore.collection('sets').doc(setId).collection('cards').get();
 
       for (var cardDoc in cardsSnapshot.docs) {

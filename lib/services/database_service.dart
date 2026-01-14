@@ -17,7 +17,7 @@ class DatabaseService {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, filePath);
     // Increment database version for schema changes
-    final db = await openDatabase(path, version: 3, onCreate: _createDB, onUpgrade: _onUpgradeDB);
+    final db = await openDatabase(path, version: 4, onCreate: _createDB, onUpgrade: _onUpgradeDB);
     await db.execute('PRAGMA foreign_keys = ON');
     return db;
   }
@@ -28,7 +28,8 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         cloudId TEXT,
-        isSynced INTEGER NOT NULL DEFAULT 1
+        isSynced INTEGER NOT NULL DEFAULT 1,
+        visibility INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -63,6 +64,9 @@ class DatabaseService {
     if (oldVersion < 3) {
       await db.execute("ALTER TABLE sets ADD COLUMN cloudId TEXT");
       await db.execute("ALTER TABLE sets ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1");
+    }
+    if (oldVersion < 4) {
+      await db.execute("ALTER TABLE sets ADD COLUMN visibility INTEGER NOT NULL DEFAULT 0");
     }
   }
 }
