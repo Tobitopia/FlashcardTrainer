@@ -6,7 +6,7 @@ import 'package:projects/models/visibility.dart' as model;
 import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/screens/all_cards/all_cards_screen.dart';
 import 'package:projects/screens/sets/sets_screen.dart';
-import 'package:projects/screens/stats/stats_screen.dart';
+import 'package:projects/screens/profile/profile_screen.dart';
 import 'package:projects/screens/training/training_screen.dart';
 import 'package:projects/services/cloud_service.dart';
 import 'package:app_links/app_links.dart';
@@ -39,7 +39,7 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     _widgetOptions = <Widget>[
       SetsScreen(key: setsScreenKey),
       AllCardsScreen(key: allCardsScreen_key),
-      const StatsScreen(),
+      const ProfileScreen(),
     ];
     _initAppLinks();
   }
@@ -89,7 +89,7 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   static const List<String> _appBarTitles = <String>[
     'My Sets',
     'All Cards',
-    'My Stats',
+    'My Profile',
   ];
 
   void _onItemTapped(int index) {
@@ -221,7 +221,7 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.folder_copy_outlined), label: 'Sets'),
           BottomNavigationBarItem(icon: Icon(Icons.style_outlined), label: 'All Cards'),
-          BottomNavigationBarItem(icon: Icon(Icons.insights_outlined), label: 'Stats'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
         currentIndex: _selectedIndex,
         backgroundColor: Theme.of(context).colorScheme.primary,

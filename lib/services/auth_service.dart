@@ -31,6 +31,16 @@ class AuthService {
       return null;
     }
   }
+  
+  // Forgot password
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      print('Failed to send password reset email: ${e.message}');
+    }
+  }
+
 
   // Sign out
   Future<void> signOut() async {

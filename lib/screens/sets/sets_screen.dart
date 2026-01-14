@@ -208,44 +208,6 @@ class SetsScreenState extends State<SetsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(''),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              showDialog<bool>(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text('Log out?'),
-                    content: const Text('Are you sure you want to log out?'),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('No'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          Navigator.of(context).pop(true);
-                          await _authService.signOut();
-                          if (mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            );
-                          }
-                        },
-                        child: const Text('Yes'),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
       body: FutureBuilder<List<VocabSet>>(
         future: _setsFuture,
         builder: (context, snapshot) {
