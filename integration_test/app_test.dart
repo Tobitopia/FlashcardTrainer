@@ -78,6 +78,50 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
+      // -- NEW: Test the training session flow --
+      await tester.tap(find.text('Test Set'));
+      await tester.pumpAndSettle();
+
+      // Add a second card to allow for navigation
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Test Card 2');
+      await tester.enterText(find.widgetWithText(TextField, 'Description'), 'Second Card Description');
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+      await tester.pumpUntilFound(find.text('Test Card 2'));
+
+      // Start the training session
+      await tester.tap(find.byIcon(Icons.play_arrow));
+      await tester.pumpAndSettle();
+
+      // Wait for the first card to appear and flip it
+      await tester.pumpUntilFound(find.text('Test Card'));
+      await tester.tap(find.text('Test Card')); // Tap to flip the card
+      await tester.pumpAndSettle();
+
+      // Rate the card by tapping a rating star
+      await tester.tap(find.byIcon(Icons.star).first);
+      await tester.pumpAndSettle();
+
+      // IMPORTANT: Tap the "Next Card" Floating Action Button
+      // This is the new step that was previously missing.
+      await tester.tap(find.byIcon(Icons.arrow_forward));
+      await tester.pumpAndSettle();
+
+      // Verify that the second card is now visible
+      await tester.pumpUntilFound(find.text('Test Card 2'));
+      expect(find.text('Test Card 2'), findsOneWidget);
+
+      // Go back to exit the training session
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      // Go back to the sets screen
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+
       // -- 6. Edit the set name --
       await tester.longPress(find.text('Test Set'));
       await tester.pumpAndSettle();

@@ -46,7 +46,7 @@ class SetsScreenState extends State<SetsScreen> {
   }
 
   void _showShareDialog(String setId) {
-    final shareLink = "https://vocabtrainer.app/share?set=$setId";
+    final shareLink = "https://stepnote.app/share?set=$setId";
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

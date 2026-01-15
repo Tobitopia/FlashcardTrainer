@@ -47,110 +47,112 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       appBar: AppBar(),
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Build your repertoire!',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Build your repertoire!',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  suffixIcon: IconButton(
-                    icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () {
+                const SizedBox(height: 40),
+                TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    suffixIcon: IconButton(
+                      icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: !_isPasswordVisible,
+                ),
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () async {
+                    setState(() {
+                      _errorMessage = null;
+                    });
+                    final email = _emailController.text;
+                    final password = _passwordController.text;
+                    final userCredential = await _authService.signInWithEmailAndPassword(email, password);
+                    if (userCredential != null) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NavigationBarScreen()),
+                      );
+                    } else {
                       setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
+                        _errorMessage = 'Login failed. Please check your credentials.';
                       });
-                    },
-                  ),
+                    }
+                  },
+                  child: const Text('Login'),
                 ),
-                obscureText: !_isPasswordVisible,
-              ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
+                TextButton(
+                  onPressed: () async {
+                    setState(() {
+                      _errorMessage = null;
+                    });
+                    final email = _emailController.text;
+                    final password = _passwordController.text;
+                    final userCredential = await _authService.createUserWithEmailAndPassword(email, password);
+                    if (userCredential != null) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NavigationBarScreen()),
+                      );
+                    } else {
+                      setState(() {
+                        _errorMessage = 'Registration failed. Please try again.';
+                      });
+                    }
+                  },
+                  child: const Text('Register'),
                 ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () async {
-                  setState(() {
-                    _errorMessage = null;
-                  });
-                  final email = _emailController.text;
-                  final password = _passwordController.text;
-                  final userCredential = await _authService.signInWithEmailAndPassword(email, password);
-                  if (userCredential != null) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const NavigationBarScreen()),
-                    );
-                  } else {
+                TextButton(
+                  onPressed: () async {
+                    final email = _emailController.text;
+                    if (email.isEmpty) {
+                      setState(() {
+                        _errorMessage = 'Please enter your email to reset your password.';
+                      });
+                      return;
+                    }
+                    await _authService.sendPasswordResetEmail(email);
                     setState(() {
-                      _errorMessage = 'Login failed. Please check your credentials.';
+                      _errorMessage = 'Password reset email sent to $email';
                     });
-                  }
-                },
-                child: const Text('Login'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  setState(() {
-                    _errorMessage = null;
-                  });
-                  final email = _emailController.text;
-                  final password = _passwordController.text;
-                  final userCredential = await _authService.createUserWithEmailAndPassword(email, password);
-                  if (userCredential != null) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const NavigationBarScreen()),
-                    );
-                  } else {
-                    setState(() {
-                      _errorMessage = 'Registration failed. Please try again.';
-                    });
-                  }
-                },
-                child: const Text('Register'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final email = _emailController.text;
-                  if (email.isEmpty) {
-                    setState(() {
-                      _errorMessage = 'Please enter your email to reset your password.';
-                    });
-                    return;
-                  }
-                  await _authService.sendPasswordResetEmail(email);
-                  setState(() {
-                    _errorMessage = 'Password reset email sent to $email';
-                  });
-                },
-                child: const Text('Forgot Password?'),
-              ),
-            ],
+                  },
+                  child: const Text('Forgot Password?'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
