@@ -11,9 +11,6 @@ import 'package:projects/screens/training/training_screen.dart';
 import 'package:projects/services/cloud_service.dart';
 import 'package:app_links/app_links.dart';
 
-final GlobalKey<SetsScreenState> setsScreenKey = GlobalKey<SetsScreenState>();
-final GlobalKey<AllCardsScreenState> allCardsScreen_key = GlobalKey<AllCardsScreenState>();
-
 class NavigationBarScreen extends StatefulWidget {
   const NavigationBarScreen({super.key});
 
@@ -27,6 +24,10 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   late final List<Widget> _widgetOptions;
   StreamSubscription<Uri>? _linkSubscription;
 
+  // Keys are now instance variables of the state
+  late final GlobalKey<SetsScreenState> _setsScreenKey;
+  late final GlobalKey<AllCardsScreenState> _allCardsScreenKey;
+
   // Dependencies from locator
   final AppLinks _appLinks = locator<AppLinks>();
   final CloudService _cloudService = locator<CloudService>();
@@ -36,9 +37,11 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    _setsScreenKey = GlobalKey<SetsScreenState>();
+    _allCardsScreenKey = GlobalKey<AllCardsScreenState>();
     _widgetOptions = <Widget>[
-      SetsScreen(key: setsScreenKey),
-      AllCardsScreen(key: allCardsScreen_key),
+      SetsScreen(key: _setsScreenKey),
+      AllCardsScreen(key: _allCardsScreenKey),
       const ProfileScreen(),
     ];
     _initAppLinks();
@@ -62,7 +65,7 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
           final vocabSet = await _cloudService.downloadVocabSet(setId);
           if (vocabSet != null) {
             await _setRepository.importSet(vocabSet);
-            setsScreenKey.currentState?.reloadSets();
+            _setsScreenKey.currentState?.reloadSets();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -180,17 +183,17 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
       final String name = result['name'];
       final model.Visibility visibility = result['visibility'];
       await _setRepository.insertSet(VocabSet(name: name, visibility: visibility));
-      setsScreenKey.currentState?.reloadSets();
+      _setsScreenKey.currentState?.reloadSets();
     }
   }
 
   void _startAllCardsTraining() {
-    final filteredCards = allCardsScreen_key.currentState?.filteredCards ?? [];
+    final filteredCards = _allCardsScreenKey.currentState?.filteredCards ?? [];
     if (filteredCards.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => TrainingScreen(cards: filteredCards)),
-      ).then((_) => allCardsScreen_key.currentState?.loadData());
+      ).then((_) => _allCardsScreenKey.currentState?.loadData());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No cards to train with the current filters!")),
