@@ -1,4 +1,3 @@
-import 'package:sqflite/sqflite.dart';
 
 import '../services/database_service.dart';
 import 'label_repository.dart';

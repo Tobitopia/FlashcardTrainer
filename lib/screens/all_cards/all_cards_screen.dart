@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
-import 'package:projects/models/vocab_set.dart';
 import 'package:projects/repositories/card_repository.dart';
 import 'package:projects/repositories/label_repository.dart';
 import 'package:projects/repositories/set_repository.dart';

@@ -171,7 +171,7 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
             TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
             if (isEditing)
               DropdownButtonFormField<int>(
-                value: allSets.any((s) => s.id == selectedSetId) ? selectedSetId : null,
+                initialValue: allSets.any((s) => s.id == selectedSetId) ? selectedSetId : null,
                 items: allSets.map((set) {
                   return DropdownMenuItem<int>(
                     value: set.id,

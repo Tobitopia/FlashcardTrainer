@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../widgets/auth_wrapper.dart';
-import 'navigation.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

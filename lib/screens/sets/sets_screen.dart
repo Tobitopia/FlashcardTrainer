@@ -8,7 +8,6 @@ import 'package:projects/screens/sets/set_detail_screen.dart';
 import 'package:projects/services/cloud_service.dart';
 import '../../widgets/set_tile.dart';
 import 'package:projects/services/auth_service.dart';
-import 'package:projects/screens/auth/login_screen.dart';
 import 'package:projects/models/visibility.dart' as model;
 
 class SetsScreen extends StatefulWidget {
