@@ -26,7 +26,13 @@ class SetRepositoryImpl implements ISetRepository {
   Future<void> importSet(VocabSet set) async {
     final db = await _databaseService.database;
     await db.transaction((txn) async {
-      int newSetId = await txn.insert('sets', {'name': set.name, 'cloudId': set.cloudId, 'isSynced': 1});
+      int newSetId = await txn.insert('sets', {
+        'name': set.name, 
+        'cloudId': set.cloudId, 
+        'isSynced': 1,
+        'visibility': set.visibility.index,
+        'role': set.role,
+      });
 
       for (VocabCard card in set.cards) {
         if (card.mediaPath != null && card.mediaPath!.startsWith('http')) {
@@ -37,6 +43,52 @@ class SetRepositoryImpl implements ISetRepository {
         final cardMap = card.toMap();
         cardMap['setId'] = newSetId;
 
+        await txn.insert('cards', cardMap);
+      }
+    });
+  }
+
+  @override
+  Future<void> syncSetWithCloud(VocabSet cloudSet) async {
+    final db = await _databaseService.database;
+    
+    // 1. Find the local set with this cloudId
+    final List<Map<String, dynamic>> sets = await db.query(
+      'sets', 
+      where: 'cloudId = ?', 
+      whereArgs: [cloudSet.cloudId]
+    );
+    
+    if (sets.isEmpty) return;
+    
+    final localSetId = sets.first['id'] as int;
+    
+    await db.transaction((txn) async {
+      // 2. Update set name, visibility, and role
+      await txn.update(
+        'sets', 
+        {
+          'name': cloudSet.name,
+          'visibility': cloudSet.visibility.index,
+          'isSynced': 1,
+          'role': cloudSet.role,
+        },
+        where: 'id = ?',
+        whereArgs: [localSetId]
+      );
+      
+      // 3. Delete existing local cards for this set
+      await txn.delete('cards', where: 'setId = ?', whereArgs: [localSetId]);
+      
+      // 4. Download and Insert new cards
+      for (VocabCard card in cloudSet.cards) {
+        if (card.mediaPath != null && card.mediaPath!.startsWith('http')) {
+          final localPath = await _downloadAndSaveMedia(card.mediaPath!);
+          card.mediaPath = localPath;
+        }
+
+        final cardMap = card.toMap();
+        cardMap['setId'] = localSetId;
         await txn.insert('cards', cardMap);
       }
     });
@@ -88,6 +140,17 @@ class SetRepositoryImpl implements ISetRepository {
     return await db.update(
       'sets',
       {'isSynced': 0},
+      where: 'id = ?',
+      whereArgs: [setId],
+    );
+  }
+
+  @override
+  Future<int> markSetAsSynced(int setId) async {
+    final db = await _databaseService.database;
+    return await db.update(
+      'sets',
+      {'isSynced': 1},
       where: 'id = ?',
       whereArgs: [setId],
     );

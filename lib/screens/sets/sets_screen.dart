@@ -44,8 +44,14 @@ class SetsScreenState extends State<SetsScreen> {
     });
   }
 
-  void _showShareDialog(String setId) {
-    final shareLink = "https://stepnote.app/share?set=$setId";
+  void _showShareDialog(VocabSet set) {
+    String role = "viewer";
+    if (set.visibility == model.Visibility.publicCooperate) {
+      role = "editor";
+    }
+    
+    final shareLink = "https://stepnote.app/share?set=${set.cloudId}&role=$role";
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -54,7 +60,7 @@ class SetsScreenState extends State<SetsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Share this link with others:'),
+            Text('Share this set as $role:'),
             const SizedBox(height: 8),
             SelectableText(
               shareLink,
@@ -84,7 +90,7 @@ class SetsScreenState extends State<SetsScreen> {
   // New: Function to handle sharing a synced set
   void _shareSetLink(VocabSet set) {
     if (set.cloudId != null) {
-      _showShareDialog(set.cloudId!);
+      _showShareDialog(set);
     }
   }
   

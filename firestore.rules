@@ -2,36 +2,48 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // By default, deny all reads and writes
     match /{document=**} {
       allow read, write: if false;
     }
 
-    function userCanReadSet(setId) {
-      let path = /databases/$(database)/documents/sets/$(setId);
-      return exists(path) && request.auth != null && (
-        get(path).data.ownerId == request.auth.uid ||
-        get(path).data.visibility == 1 ||
-        get(path).data.visibility == 2
-      );
-    }
-
-    // Allow users to manage their own vocab sets
     match /sets/{setId} {
-      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.ownerId;
-      allow read: if userCanReadSet(setId);
+      // Allow read if: Owner OR Public/Link OR Collaborator
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.visibility in [1, 2] ||
+        (resource.data.collaborators != null && request.auth.uid in resource.data.collaborators)
+      );
+
+      // Allow Create: Any authenticated user
+      allow create: if request.auth != null;
+
+      // Allow Update: Owner OR Editor collaborator
+      allow update: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        (resource.data.collaborators != null && resource.data.collaborators[request.auth.uid] == 'editor') ||
+        // Allow adding self as collaborator if set is link-shared
+        (request.resource.data.collaborators.keys().hasAll(resource.data.collaborators.keys()) && 
+         resource.data.visibility in [1, 2])
+      );
+
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
-    // Rules for cards, based on data within the card document itself
     match /sets/{setId}/cards/{cardId} {
-      // Allow read if user is owner OR if card is public/by link
-      allow read: if request.auth.uid == resource.data.ownerId || resource.data.visibility == 1 || resource.data.visibility == 2;
+      // For list/query: permission is checked based on set membership or visibility
+      // To simplify and avoid the "rules are not filters" error on broad queries,
+      // we check the parent set document permissions.
+      allow read: if request.auth != null && (
+        get(/databases/$(database)/documents/sets/$(setId)).data.ownerId == request.auth.uid ||
+        get(/databases/$(database)/documents/sets/$(setId)).data.visibility in [1, 2] ||
+        request.auth.uid in get(/databases/$(database)/documents/sets/$(setId)).data.collaborators
+      );
 
-      // Allow create if the user ID matches the ownerId in the new card
-      allow create: if request.auth.uid == request.resource.data.ownerId;
-      
-      // Allow update and delete if the user is the owner of the existing card
-      allow update, delete: if request.auth.uid == resource.data.ownerId;
+      // Allow write: Owner or Editor
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/sets/$(setId)).data.ownerId == request.auth.uid ||
+        get(/databases/$(database)/documents/sets/$(setId)).data.collaborators[request.auth.uid] == 'editor'
+      );
     }
   }
 }

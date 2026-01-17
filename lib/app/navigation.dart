@@ -58,27 +58,45 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     _linkSubscription = _appLinks.uriLinkStream.listen((uri) async {
       if (mounted) {
         final setId = uri.queryParameters['set'];
+        final role = uri.queryParameters['role'] ?? 'viewer';
+        
         if (setId != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Importing set with ID: $setId...")),
+            SnackBar(content: Text("Joining set as $role...")),
           );
-          final vocabSet = await _cloudService.downloadVocabSet(setId);
-          if (vocabSet != null) {
-            await _setRepository.importSet(vocabSet);
-            _setsScreenKey.currentState?.reloadSets();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("'${vocabSet.name}' imported successfully!"),
-                  backgroundColor: Colors.green,
-                ),
-              );
+          
+          // 1. Join the set in the cloud
+          final joined = await _cloudService.joinVocabSet(setId, role);
+          
+          if (joined) {
+            // 2. Download and import
+            final vocabSet = await _cloudService.downloadVocabSet(setId);
+            if (vocabSet != null) {
+              await _setRepository.importSet(vocabSet);
+              _setsScreenKey.currentState?.reloadSets();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("'${vocabSet.name}' joined successfully!"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Failed to download set data."),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
           } else {
-            if (mounted) {
+             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("Import failed. Check the link and try again."),
+                  content: Text("Could not join set. Access may have been restricted."),
                   backgroundColor: Colors.red,
                 ),
               );

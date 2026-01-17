@@ -4,6 +4,8 @@ abstract class ISetRepository {
   Future<int> insertSet(VocabSet set);
 
   Future<void> importSet(VocabSet set);
+  
+  Future<void> syncSetWithCloud(VocabSet cloudSet);
 
   Future<List<VocabSet>> getAllSets();
 
@@ -12,6 +14,8 @@ abstract class ISetRepository {
   Future<int> updateSetCloudStatus(int setId, String cloudId, {bool isSynced = true});
 
   Future<int> markSetAsUnsynced(int setId);
+
+  Future<int> markSetAsSynced(int setId); // New
 
   Future<int> deleteSet(int id);
 }

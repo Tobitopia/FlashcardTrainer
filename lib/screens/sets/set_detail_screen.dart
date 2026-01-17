@@ -4,10 +4,12 @@ import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_card.dart';
 import 'package:projects/models/vocab_set.dart';
 import 'package:projects/repositories/card_repository.dart';
+import 'package:projects/repositories/set_repository.dart';
 import 'package:projects/screens/training/training_screen.dart';
 import 'package:projects/widgets/add_edit_card_dialog.dart';
 import 'package:projects/widgets/card_tile.dart';
 import 'package:projects/screens/media/video_player_screen.dart';
+import 'package:projects/services/cloud_service.dart';
 
 class SetDetailScreen extends StatefulWidget {
   final VocabSet vocabSet;
@@ -20,14 +22,17 @@ class SetDetailScreen extends StatefulWidget {
 class _SetDetailScreenState extends State<SetDetailScreen> {
   late Future<List<VocabCard>> _cardsFuture;
 
-  // Repositories from locator
+  // Repositories and services from locator
   final ICardRepository _cardRepository = locator<ICardRepository>();
+  final ISetRepository _setRepository = locator<ISetRepository>();
+  final CloudService _cloudService = locator<CloudService>();
 
   final _searchController = TextEditingController();
   String _searchQuery = '';
   double _minRating = 0.0;
   final Set<String> _selectedLabels = {};
   List<VocabCard> _filteredCards = [];
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -50,6 +55,45 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
     setState(() {
       _cardsFuture = _cardRepository.getCardsForSet(widget.vocabSet.id!);
     });
+  }
+
+  Future<void> _syncWithCloud() async {
+    if (widget.vocabSet.cloudId == null) return;
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      final cloudSet = await _cloudService.downloadVocabSet(widget.vocabSet.cloudId!);
+      if (cloudSet != null) {
+        await _setRepository.syncSetWithCloud(cloudSet);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Set synced with cloud!")),
+          );
+        }
+      } else {
+         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Failed to fetch cloud data. It might be deleted.")),
+          );
+        }
+      }
+    } catch (e) {
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Sync error: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+        _loadCards();
+      }
+    }
   }
 
   void _toggleLabel(String label) {
@@ -78,6 +122,12 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
       } else {
         await _cardRepository.insertCard(result, result.setId ?? widget.vocabSet.id!);
       }
+      
+      // If the set is synced with cloud, mark it as unsynced locally
+      if (widget.vocabSet.cloudId != null) {
+        await _setRepository.markSetAsUnsynced(widget.vocabSet.id!);
+      }
+      
       _loadCards();
     }
   }
@@ -139,6 +189,11 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
     );
     if (confirmed == true) {
       await _cardRepository.deleteCard(cardId);
+      
+      if (widget.vocabSet.cloudId != null) {
+        await _setRepository.markSetAsUnsynced(widget.vocabSet.id!);
+      }
+      
       _loadCards();
     }
   }
@@ -146,7 +201,22 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.vocabSet.name)),
+      appBar: AppBar(
+        title: Text(widget.vocabSet.name),
+        actions: [
+          if (widget.vocabSet.cloudId != null)
+            _isSyncing 
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.sync),
+                  onPressed: _syncWithCloud,
+                  tooltip: 'Sync with Cloud',
+                ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -199,7 +269,7 @@ class _SetDetailScreenState extends State<SetDetailScreen> {
 
                   final rating = _minRating.round();
                   _filteredCards = allCardsInSet.where((card) {
-                    final ratingMatch = rating == 0 || card.rating == rating; // <-- NEW LOGIC
+                    final ratingMatch = rating == 0 || card.rating == rating;
                     final labelMatch = _selectedLabels.isEmpty || _selectedLabels.any((label) => card.labels.contains(label));
                     final query = _searchQuery.toLowerCase();
                     final searchMatch = query.isEmpty ||

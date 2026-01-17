@@ -5,17 +5,19 @@ class VocabSet {
   int? id;
   String name;
   List<VocabCard> cards;
-  String? cloudId; // New: To store the ID from Firestore
-  bool isSynced; // New: To track if local changes need to be uploaded
-  Visibility visibility; // New: To control sharing settings
+  String? cloudId; 
+  bool isSynced; 
+  Visibility visibility;
+  String? role; // New: 'owner', 'editor', or 'viewer'
 
   VocabSet({
     this.id,
     required this.name,
     List<VocabCard>? cards,
     this.cloudId,
-    this.isSynced = true, // Default to true for new or synced sets
+    this.isSynced = true,
     this.visibility = Visibility.private,
+    this.role,
   }) : cards = cards ?? [];
 
   Map<String, dynamic> toMap() {
@@ -23,8 +25,9 @@ class VocabSet {
       'id': id,
       'name': name,
       'cloudId': cloudId,
-      'isSynced': isSynced ? 1 : 0, // SQLite doesn't have a boolean type
+      'isSynced': isSynced ? 1 : 0, 
       'visibility': visibility.index,
+      'role': role,
     };
   }
 
@@ -35,6 +38,7 @@ class VocabSet {
       cloudId: map['cloudId'],
       isSynced: map['isSynced'] == 1,
       visibility: Visibility.values[map['visibility'] ?? 0],
+      role: map['role'],
     );
   }
 

@@ -16,8 +16,8 @@ class DatabaseService {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, filePath);
-    // Increment database version for schema changes
-    final db = await openDatabase(path, version: 4, onCreate: _createDB, onUpgrade: _onUpgradeDB);
+    // Increment database version for role support
+    final db = await openDatabase(path, version: 5, onCreate: _createDB, onUpgrade: _onUpgradeDB);
     await db.execute('PRAGMA foreign_keys = ON');
     return db;
   }
@@ -29,7 +29,8 @@ class DatabaseService {
         name TEXT NOT NULL,
         cloudId TEXT,
         isSynced INTEGER NOT NULL DEFAULT 1,
-        visibility INTEGER NOT NULL DEFAULT 0
+        visibility INTEGER NOT NULL DEFAULT 0,
+        role TEXT
       )
     ''');
 
@@ -60,13 +61,15 @@ class DatabaseService {
     if (oldVersion < 2) {
         await db.execute("ALTER TABLE cards ADD COLUMN lastTrained INTEGER");
     }
-    // Add cloudId and isSynced columns for database version 3
     if (oldVersion < 3) {
       await db.execute("ALTER TABLE sets ADD COLUMN cloudId TEXT");
       await db.execute("ALTER TABLE sets ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1");
     }
     if (oldVersion < 4) {
       await db.execute("ALTER TABLE sets ADD COLUMN visibility INTEGER NOT NULL DEFAULT 0");
+    }
+    if (oldVersion < 5) {
+      await db.execute("ALTER TABLE sets ADD COLUMN role TEXT");
     }
   }
 }
