@@ -1,0 +1,31 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vocab-trainer-app-732bf",
+          "appId": "1:199313302739:android:bdbab876f4ebdda9736026",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vocab-trainer-app-732bf",
+          "configurations": {
+            "android": "1:199313302739:android:bdbab876f4ebdda9736026",
+            "ios": "1:199313302739:ios:271ce09f174dcbee736026",
+            "macos": "1:199313302739:ios:271ce09f174dcbee736026",
+            "web": "1:199313302739:web:01cfc6bd591d0bdb736026",
+            "windows": "1:199313302739:web:ec3f0a47990e5002736026"
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,20 +7,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Allow users to manage their own vocab sets
-    match /sets/{setId} {
-      // Allow create, update, delete if the user is the owner
-      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.ownerId;
-
-      // Allow read if the user is the owner OR the set is public
-      allow read: if (request.auth != null && request.auth.uid == resource.data.ownerId) || 
-                   (resource.data.visibility == 1 || resource.data.visibility == 2);
+    function userCanReadSet(setId) {
+      let path = /databases/$(database)/documents/sets/$(setId);
+      return exists(path) && request.auth != null && (
+        get(path).data.ownerId == request.auth.uid ||
+        get(path).data.visibility == 1 ||
+        get(path).data.visibility == 2
+      );
     }
 
-    // Allow users to manage cards within their own sets
+    // Allow users to manage their own vocab sets
+    match /sets/{setId} {
+      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.ownerId;
+      allow read: if userCanReadSet(setId);
+    }
+
+    // Rules for cards, based on data within the card document itself
     match /sets/{setId}/cards/{cardId} {
-      // Allow read, write if the user owns the parent set
-      allow read, write: if request.auth != null && get(/databases/$(database)/documents/sets/$(setId)).data.ownerId == request.auth.uid;
+      // Allow read if user is owner OR if card is public/by link
+      allow read: if request.auth.uid == resource.data.ownerId || resource.data.visibility == 1 || resource.data.visibility == 2;
+
+      // Allow create if the user ID matches the ownerId in the new card
+      allow create: if request.auth.uid == request.resource.data.ownerId;
+      
+      // Allow update and delete if the user is the owner of the existing card
+      allow update, delete: if request.auth.uid == resource.data.ownerId;
     }
   }
 }

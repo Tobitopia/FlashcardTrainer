@@ -14,37 +14,43 @@ class CloudService {
 
   /// Helper method to upload a file to Cloud Storage and get its URL
   Future<String?> _uploadMediaFile(String filePath, String setId) async {
+    print("Starting upload for file: $filePath");
     final User? currentUser = _auth.currentUser;
-    if (currentUser == null) return null;
-
-    File file = File(filePath);
-    if (!await file.exists()) {
-      print("File to upload does not exist at path: $filePath");
+    if (currentUser == null) {
+      print("Upload failed: No user logged in.");
       return null;
     }
 
-    // Create a unique file name to avoid collisions in storage
+    File file = File(filePath);
+    if (!await file.exists()) {
+      print("Upload skipped: File does not exist at path: $filePath");
+      return null;
+    }
+
     String fileName = p.basename(file.path);
     String uniqueFileName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+    String storagePath = 'uploads/$setId/$uniqueFileName';
 
     try {
-      // Create a reference to the location in Cloud Storage
-      Reference ref = _storage.ref().child('uploads/${currentUser.uid}/$setId/$uniqueFileName');
-
-      // Upload the file
+      Reference ref = _storage.ref().child(storagePath);
+      print("Uploading to Storage path: $storagePath");
+      
       UploadTask uploadTask = ref.putFile(file);
+      
+      // Wait for completion
       TaskSnapshot snapshot = await uploadTask;
-
-      // Get the public download URL
       String downloadUrl = await snapshot.ref.getDownloadURL();
+      print("Upload successful. Download URL: $downloadUrl");
       return downloadUrl;
+    } on FirebaseException catch (e) {
+      print("Firebase Storage error during upload: ${e.code} - ${e.message}");
+      return null;
     } catch (e) {
-      print("Error uploading media file: $e");
+      print("Unexpected error during storage upload: $e");
       return null;
     }
   }
 
-  // New method: Handles both initial upload and updating an existing set
   Future<String?> uploadOrUpdateVocabSet(VocabSet vocabSet, {String? existingCloudId}) async {
     final User? currentUser = _auth.currentUser;
     if (currentUser == null) {
@@ -57,22 +63,21 @@ class CloudService {
       DocumentReference setDocRef;
 
       if (existingCloudId != null) {
-        // Update existing set
         setDocRef = setsCollection.doc(existingCloudId);
         await setDocRef.update({
           'ownerId': currentUser.uid,
           'ownerEmail': currentUser.email,
           'setName': vocabSet.name,
-          'updatedAt': FieldValue.serverTimestamp(), // Add an update timestamp
+          'updatedAt': FieldValue.serverTimestamp(),
           'visibility': vocabSet.visibility.index,
         });
-        // For simplicity, delete all existing cards and re-add them
-        QuerySnapshot currentCards = await setDocRef.collection('cards').get();
+
+        // Delete only cards owned by current user
+        QuerySnapshot currentCards = await setDocRef.collection('cards').where('ownerId', isEqualTo: currentUser.uid).get();
         for (DocumentSnapshot doc in currentCards.docs) {
           await doc.reference.delete();
         }
       } else {
-        // Upload new set
         setDocRef = setsCollection.doc();
         await setDocRef.set({
           'ownerId': currentUser.uid,
@@ -85,10 +90,10 @@ class CloudService {
 
       CollectionReference cardsCollection = setDocRef.collection('cards');
       for (VocabCard card in vocabSet.cards) {
-        String? mediaUrl = card.mediaPath; // Start with current mediaPath
+        String? mediaUrl = card.mediaPath;
         
-        // Only upload if it's a local file path (not an already uploaded URL)
         if (mediaUrl != null && !mediaUrl.startsWith('http')) {
+          print("Local media detected, initiating upload...");
           mediaUrl = await _uploadMediaFile(mediaUrl, setDocRef.id);
         }
 
@@ -97,19 +102,24 @@ class CloudService {
           'description': card.description,
           'labels': card.labels,
           'rating': card.rating,
+          'ownerId': currentUser.uid,
+          'visibility': vocabSet.visibility.index,
           if (mediaUrl != null) 'mediaUrl': mediaUrl,
         });
       }
 
-      print('Set uploaded/updated successfully! Set ID: ${setDocRef.id}');
+      print('Set upload/update process complete! Set ID: ${setDocRef.id}');
       return setDocRef.id;
     } catch (e) {
-      print('Error uploading/updating set: $e');
+      print('Error in uploadOrUpdateVocabSet: $e');
       return null;
     }
   }
 
   Future<VocabSet?> downloadVocabSet(String setId) async {
+    print("Attempting to download set with ID: $setId");
+    final User? currentUser = _auth.currentUser;
+
     try {
       DocumentSnapshot setDoc = await _firestore.collection('sets').doc(setId).get();
       if (!setDoc.exists) {
@@ -119,15 +129,42 @@ class CloudService {
 
       final setData = setDoc.data() as Map<String, dynamic>;
       final set = VocabSet(
-        name: setData['setName'], 
-        cloudId: setDoc.id, 
-        isSynced: true, 
-        visibility: Visibility.values[setData['visibility'] ?? 0]
-      ); 
+        name: setData['setName'],
+        cloudId: setDoc.id,
+        isSynced: true,
+        visibility: Visibility.values[setData['visibility'] ?? 0],
+      );
 
-      QuerySnapshot cardsSnapshot = await _firestore.collection('sets').doc(setId).collection('cards').get();
+      // Perform specific queries to satisfy security rules
+      final publicCardsQuery = _firestore
+          .collection('sets').doc(setId).collection('cards')
+          .where('visibility', whereIn: [1, 2])
+          .get();
 
-      for (var cardDoc in cardsSnapshot.docs) {
+      Future<QuerySnapshot<Map<String, dynamic>>>? userCardsQuery;
+      if (currentUser != null) {
+        userCardsQuery = _firestore
+            .collection('sets').doc(setId).collection('cards')
+            .where('ownerId', isEqualTo: currentUser.uid)
+            .get();
+      }
+      
+      final results = await Future.wait([
+        publicCardsQuery,
+        if (userCardsQuery != null) userCardsQuery,
+      ]);
+
+      final allCardDocs = <String, QueryDocumentSnapshot>{};
+      for (var doc in (results[0] as QuerySnapshot).docs) {
+        allCardDocs[doc.id] = doc;
+      }
+      if (results.length > 1) {
+        for (var doc in (results[1] as QuerySnapshot).docs) {
+          allCardDocs[doc.id] = doc;
+        }
+      }
+
+      for (var cardDoc in allCardDocs.values) {
         final cardData = cardDoc.data() as Map<String, dynamic>;
         set.addCard(VocabCard(
           title: cardData['title'],
@@ -138,9 +175,13 @@ class CloudService {
         ));
       }
 
+      print("Set download successful. Cards found: ${allCardDocs.length}");
       return set;
+    } on FirebaseException catch (e) {
+      print('Firebase error: ${e.code} - ${e.message}');
+      return null;
     } catch (e) {
-      print('Error downloading set: $e');
+      print('Unexpected error: $e');
       return null;
     }
   }
