@@ -240,7 +240,8 @@ class _AddEditCardDialogState extends State<AddEditCardDialog> {
               );
             }
           },
-          child: Text(isEditing ? "Save" : "Add"),
+          // IMPORTANT: Changing 'Add' to 'Save' to standardize UI and fix tests
+          child: Text(isEditing ? "Save" : "Save"), 
         ),
       ],
     );

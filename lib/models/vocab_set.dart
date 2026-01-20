@@ -8,7 +8,8 @@ class VocabSet {
   String? cloudId; 
   bool isSynced; 
   Visibility visibility;
-  String? role; // New: 'owner', 'editor', or 'viewer'
+  String? role; 
+  bool isProgression; // New: Flag for timeline view
 
   VocabSet({
     this.id,
@@ -18,6 +19,7 @@ class VocabSet {
     this.isSynced = true,
     this.visibility = Visibility.private,
     this.role,
+    this.isProgression = false,
   }) : cards = cards ?? [];
 
   Map<String, dynamic> toMap() {
@@ -28,6 +30,7 @@ class VocabSet {
       'isSynced': isSynced ? 1 : 0, 
       'visibility': visibility.index,
       'role': role,
+      'isProgression': isProgression ? 1 : 0,
     };
   }
 
@@ -39,6 +42,7 @@ class VocabSet {
       isSynced: map['isSynced'] == 1,
       visibility: Visibility.values[map['visibility'] ?? 0],
       role: map['role'],
+      isProgression: map['isProgression'] == 1,
     );
   }
 

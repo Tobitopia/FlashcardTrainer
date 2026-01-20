@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:projects/services/cloud_service.dart';
 
 import '../models/vocab_card.dart';
 import '../models/vocab_set.dart';
@@ -13,8 +14,9 @@ import 'set_repository.dart';
 class SetRepositoryImpl implements ISetRepository {
   final DatabaseService _databaseService;
   final ICardRepository _cardRepository;
+  final CloudService _cloudService; 
 
-  SetRepositoryImpl(this._databaseService, this._cardRepository);
+  SetRepositoryImpl(this._databaseService, this._cardRepository, this._cloudService);
 
   @override
   Future<int> insertSet(VocabSet set) async {
@@ -32,16 +34,18 @@ class SetRepositoryImpl implements ISetRepository {
         'isSynced': 1,
         'visibility': set.visibility.index,
         'role': set.role,
+        'isProgression': set.isProgression ? 1 : 0,
       });
 
       for (VocabCard card in set.cards) {
-        if (card.mediaPath != null && card.mediaPath!.startsWith('http')) {
-          final localPath = await _downloadAndSaveMedia(card.mediaPath!);
-          card.mediaPath = localPath;
+        String? localPath;
+        if (card.remoteUrl != null) {
+          localPath = await _downloadAndSaveMedia(card.remoteUrl!);
         }
 
         final cardMap = card.toMap();
         cardMap['setId'] = newSetId;
+        cardMap['mediaPath'] = localPath; 
 
         await txn.insert('cards', cardMap);
       }
@@ -52,7 +56,6 @@ class SetRepositoryImpl implements ISetRepository {
   Future<void> syncSetWithCloud(VocabSet cloudSet) async {
     final db = await _databaseService.database;
     
-    // 1. Find the local set with this cloudId
     final List<Map<String, dynamic>> sets = await db.query(
       'sets', 
       where: 'cloudId = ?', 
@@ -64,7 +67,6 @@ class SetRepositoryImpl implements ISetRepository {
     final localSetId = sets.first['id'] as int;
     
     await db.transaction((txn) async {
-      // 2. Update set name, visibility, and role
       await txn.update(
         'sets', 
         {
@@ -72,26 +74,63 @@ class SetRepositoryImpl implements ISetRepository {
           'visibility': cloudSet.visibility.index,
           'isSynced': 1,
           'role': cloudSet.role,
+          'isProgression': cloudSet.isProgression ? 1 : 0,
         },
         where: 'id = ?',
         whereArgs: [localSetId]
       );
       
-      // 3. Delete existing local cards for this set
       await txn.delete('cards', where: 'setId = ?', whereArgs: [localSetId]);
       
-      // 4. Download and Insert new cards
       for (VocabCard card in cloudSet.cards) {
-        if (card.mediaPath != null && card.mediaPath!.startsWith('http')) {
-          final localPath = await _downloadAndSaveMedia(card.mediaPath!);
-          card.mediaPath = localPath;
+        String? localPath;
+        if (card.remoteUrl != null) {
+          localPath = await _downloadAndSaveMedia(card.remoteUrl!);
         }
 
         final cardMap = card.toMap();
         cardMap['setId'] = localSetId;
+        cardMap['mediaPath'] = localPath; 
+        
         await txn.insert('cards', cardMap);
       }
     });
+  }
+
+  @override
+  Future<String?> pushSetToCloud(VocabSet set) async {
+    final cards = await _cardRepository.getCardsForSet(set.id!);
+    final fullSet = VocabSet(
+      id: set.id,
+      name: set.name,
+      cards: cards,
+      cloudId: set.cloudId,
+      visibility: set.visibility,
+      isProgression: set.isProgression,
+      role: set.role,
+    );
+
+    final String? newCloudId = await _cloudService.uploadOrUpdateVocabSet(fullSet, existingCloudId: set.cloudId);
+    
+    if (newCloudId != null) {
+      await updateSetCloudStatus(set.id!, newCloudId, isSynced: true);
+    }
+    return newCloudId;
+  }
+
+  @override
+  Future<bool> pullSetFromCloud(String cloudId) async {
+    try {
+      final cloudSet = await _cloudService.downloadVocabSet(cloudId);
+      if (cloudSet != null) {
+        await syncSetWithCloud(cloudSet);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Error pulling set from cloud: $e");
+      return false;
+    }
   }
 
   @override
@@ -135,6 +174,17 @@ class SetRepositoryImpl implements ISetRepository {
   }
 
   @override
+  Future<int> updateSetProgression(int setId, bool isProgression) async {
+    final db = await _databaseService.database;
+    return await db.update(
+      'sets',
+      {'isProgression': isProgression ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [setId],
+    );
+  }
+
+  @override
   Future<int> markSetAsUnsynced(int setId) async {
     final db = await _databaseService.database;
     return await db.update(
@@ -162,15 +212,26 @@ class SetRepositoryImpl implements ISetRepository {
     return await db.delete('sets', where: 'id = ?', whereArgs: [id]);
   }
 
-  // TODO: This should be extracted to a separate MediaService
+  @override
+  Future<bool> deleteSetFromCloud(String cloudId) async {
+    return await _cloudService.deleteVocabSet(cloudId);
+  }
+
   Future<String?> _downloadAndSaveMedia(String url) async {
     try {
-      final response = await http.get(Uri.parse(url));
+      final uri = Uri.parse(url);
+      final fileName = p.basename(uri.path); 
+      
+      final directory = await getApplicationDocumentsDirectory();
+      final localPath = p.join(directory.path, fileName);
+      final file = File(localPath);
+
+      if (await file.exists()) {
+        return localPath; 
+      }
+
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
-        final directory = await getApplicationDocumentsDirectory();
-        final fileName = p.basename(url).split('?').first; // Get original filename
-        final localPath = p.join(directory.path, fileName);
-        final file = File(localPath);
         await file.writeAsBytes(response.bodyBytes);
         return localPath;
       }

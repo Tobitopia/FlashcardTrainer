@@ -1,107 +1,65 @@
-# Vocab Trainer (Flutter)
+# StepNote - Flashcard Trainer
 
-A dynamic and media-rich vocabulary training application built with Flutter. This app allows users to create personalized flashcard sets, incorporating not just text but also videos and images for a more engaging learning experience.
+A modern, dynamic, and collaborative vocabulary training application built with Flutter. StepNote allows users to create personalized flashcard sets with rich media (videos/images), organize them into sets, and share them with friends or students via secure cloud links.
+
+![App Logo](assets/images/logo.png)
 
 ## Key Features
 
-- **Media-Rich Flashcards:** Move beyond simple text. Create cards with a title, a description, and attach a video or image directly from your device's gallery or camera.
-- **Organize with Sets:** Group your cards into custom sets for focused study sessions.
-- **Dynamic Labeling:** Assign multiple labels to your cards (e.g., "verbs," "chapter 3," "difficult") for powerful filtering and organization.
-- **Card Rating:** Rate your confidence with each card on a 1-5 star scale to track your learning progress.
-- **Database Powered:** All your sets, cards, and labels are stored locally on your device using a robust SQLite database.
-- **Filter and Find:** Quickly find the cards you need on the "All Cards" screen with a label-based filter.
-- **Intuitive UI:** A clean, modern interface with a bottom navigation bar for easy access to all features.
+- **Media-Rich Flashcards:** Create cards with titles, descriptions, and attach videos or images directly from your gallery or camera.
+- **Collaborative Sharing:** Share your sets via a unique link.
+    - **View-Only:** Share sets for others to study.
+    - **Collaborative:** Invite others to edit and add cards to your set.
+- **Progression Mode:** Toggle between a standard Grid View and a **Progression Timeline** to visualize your learning journey chronologically.
+- **Cloud Sync:** 
+    - Automatically backs up your sets to the cloud.
+    - Restores your sets when you log in on a new device.
+    - Syncs changes between devices and collaborators.
+- **Local-First Architecture:** Works offline! All data is stored locally in SQLite and syncs when online.
+- **Dynamic Labeling & Filtering:** Organize with custom labels and filter by rating or label.
+- **Modern UI:** Features a sleek, "glassy" design with smooth animations and gradients.
 
 ## How to Use
 
-1.  **Create a Set:** Navigate to the **Sets** tab and tap the '+' button to create a new vocabulary set.
-2.  **Add a Card:** Open a set and tap the '+' button again to open the "New Card" dialog.
-3.  **Build Your Card:**
-    *   Fill in the **Title** and **Description**.
-    *   Tap **"Gallery"** or **"Camera"** to add a video.
-    *   Add existing labels or create new ones.
-    *   Set a rating with the slider.
-4.  **View Your Cards:**
-    *   In a set, tap a card to view it. If it has a video, it will open in a video player.
-    *   Long-press a card to bring up options to **Edit** or **Delete** it.
-    *   Long-press a set on the main screen to delete it (with a confirmation).
+1.  **Create a Set:** Tap the '+' button on the main screen. Choose visibility (Private, Public View, Public Edit).
+2.  **Add Cards:** Inside a set, tap the '+' FAB. Add text and video.
+3.  **Share:** Tap the Share icon on a public set to generate a link. Send this link to a friend.
+4.  **Join:** Tapping a shared link automatically opens StepNote, joins the set, and downloads it.
+5.  **Sync:** 
+    - Tap the **Upload** icon to push local changes to the cloud.
+    - Tap the **Download** icon to pull the latest changes from collaborators.
+6.  **Progression:** Inside a set, toggle the view icon in the top bar to switch between Grid and Timeline views.
 
-## App Structure
+## Architecture
 
-- **Bottom Navigation**
-    - **Sets**: Create and manage sets, add media cards, and start training.
-    - **All Cards**: Browse all cards across all sets, with label filtering.
-    - **Stats**: Visualize progress and rating distribution.
+StepNote follows a clean architecture using **Dependency Injection** (GetIt) and the **Repository Pattern**.
 
-- **Floating Action Button (FAB)**
-    - On **Sets** screen → Add a new set.
-    - Inside a set → Add a new card or start a training session.
-    - On **All Cards** screen → Start a training session.
+-   **Services:** Handle low-level APIs (`DatabaseService` for SQLite, `CloudService` for Firebase, `AuthService`).
+-   **Repositories:** Abstract data sources. The UI interacts with `ISetRepository` and `ICardRepository`, which manage data flow between local storage and the cloud.
+-   **UI:** Built with Flutter widgets, using `FutureBuilder` and `StreamBuilder` for reactive data display.
 
-## Project Milestones
+See [docs/Architecture.md](docs/Architecture.md) for a detailed diagram.
 
-### Core Models
-- [x] Define `VocabCard` and `VocabSet` classes.
-- [x] Add methods for update, filter, and statistics.
-- [x] **Update `VocabCard` to support media (title, description, mediaPath).**
-- [x] **Update `VocabCard` to include `lastTrained` for smart training.**
+## Technology Stack
 
-### UI: Navigation
-- [x] Implement `BottomNavigationBar` with three tabs: Sets, All Cards, Stats.
-- [x] Add `FloatingActionButton` behavior per tab.
+-   **Framework:** Flutter
+-   **Local Database:** SQLite (`sqflite`)
+-   **Cloud Backend:** Firebase (Auth, Firestore, Storage)
+-   **Deep Linking:** `app_links`
+-   **Video:** `video_player`, `easy_video_editor`
+-   **State Management:** `setState` + Repository Pattern
 
-### UI: Sets
-- [x] List existing sets.
-- [x] Create new set with dialog prompt.
-- [x] **Delete set with a long-press and confirmation.**
-- [x] Navigate into a set detail screen.
-- [x] **Add media cards to a set (title, description, video, labels, rating).**
-- [x] **Edit and Delete cards via long-press menu.**
-- [x] Filter cards by labels.
-- [x] Start training from a filtered set.
+## Getting Started
 
-### UI: All Cards
-- [x] List all cards across sets.
-- [x] Filter by labels.
-- [x] Start training.
-
-### UI: Training
-- [x] Simple mode: show card front, flip to back.
-- [x] Add rating buttons (1–5).
-- [x] Implement order-by strategies:
-    - [ ] Sequential
-    - [x] By rating
-    - [x] By time not seen
-    - [ ] Intelligent (future work)
-
-### UI: Stats
-- [x] Collect card statistics.
-- [x] Display rating distribution in chart.
-- [ ] Show progress over time.
-
-### Database
-- [x] Set up `database_helpers.dart` with SQLite.
-- [x] Implement full CRUD (Create, Read, Update, Delete) for Sets and Cards.
-- [x] Implement labeling system in the database.
-- [x] **Update database schema to support media cards.**
-- [x] **Update database schema to include `lastTrained` for smart training.**
-
-## Future Feature: Cloud Sync & Sharing
-
-This feature will allow users to upload their vocabulary sets to the cloud and share them with others via a unique link.
-
-### 1. Backend Setup & Authentication
-- [x] **Choose a Backend:** Firebase is the primary candidate due to its strong Flutter integration.
-- [x] **Set up Authentication:** Implement email/password login and registration. This is necessary to associate cloud sets with a user account.
-- [x] **Create a Login/Register Screen:** Build the UI for users to sign in or create an account.
-
-### 2. Cloud Storage for Sets
-- [x] **Set up Cloud Database:** Use Firebase Firestore to store `VocabSet` and `VocabCard` data.
-- [x] **Develop Cloud Service:** Create a `cloud_services.dart` file to handle communication between the app and Firestore.
-- [x] **Implement "Upload" Functionality:** Add a UI element (e.g., a "share" button) that allows a logged-in user to upload a local set to their cloud account.
-
-### 3. Sharing & Importing
-- [x] **Generate Sharable Links:** For each uploaded set, create a unique identifier and a corresponding link.
-- [x] **Implement Deep Linking:** Configure the app to recognize when it's opened via a shared link.
-- [x] **Implement "Import" Functionality:** When the app is opened with a link, it should fetch the set from the cloud and save it to the user's local SQLite database.
-- [x] **Handle Media Files:** Devise a strategy for uploading and downloading associated images/videos (e.g., using Firebase Cloud Storage).
+1.  **Install Dependencies:**
+    ```bash
+    flutter pub get
+    ```
+2.  **Generate Launcher Icons:**
+    ```bash
+    dart run flutter_launcher_icons
+    ```
+3.  **Run the App:**
+    ```bash
+    flutter run
+    ```

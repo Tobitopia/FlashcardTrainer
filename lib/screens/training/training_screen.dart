@@ -37,20 +37,30 @@ class _TrainingScreenState extends State<TrainingScreen> {
   }
 
   List<VocabCard> _createTrainingDeck(List<VocabCard> cards) {
-    final random = Random();
-    cards.sort((a, b) {
+    // Make a copy to avoid modifying the original list in place if it's used elsewhere
+    List<VocabCard> deck = List.from(cards);
+    
+    deck.sort((a, b) {
+      // 1. Sort by Rating (Ascending - lower rating first)
       int ratingCompare = a.rating.compareTo(b.rating);
       if (ratingCompare != 0) return ratingCompare;
 
+      // 2. Sort by Last Trained (Ascending - oldest/null first)
       DateTime now = DateTime.now();
       DateTime lastTrainedA = a.lastTrained ?? now.subtract(const Duration(days: 365));
       DateTime lastTrainedB = b.lastTrained ?? now.subtract(const Duration(days: 365));
       int timeCompare = lastTrainedA.compareTo(lastTrainedB);
       if (timeCompare != 0) return timeCompare;
 
-      return random.nextInt(3) - 1;
+      // 3. Deterministic Fallback: Sort by ID (Ascending - older cards first)
+      // This ensures tests are predictable.
+      if (a.id != null && b.id != null) {
+        return a.id!.compareTo(b.id!);
+      }
+      
+      return 0; 
     });
-    return cards;
+    return deck;
   }
 
   void _initializeVideoPlayer() {
@@ -220,8 +230,6 @@ class _TrainingScreenState extends State<TrainingScreen> {
           );
         },
         errorBuilder: (context, error, stackTrace) {
-          // This will show a generic error icon if the image fails to load
-          // for any reason other than the initial loading flicker.
           return const Center(
             child: Icon(Icons.broken_image, color: Colors.grey, size: 50),
           );

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:projects/models/visibility.dart' as model;
 import '../models/vocab_set.dart';
@@ -7,7 +8,7 @@ class SetCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onUpload;
-  final VoidCallback? onShare; // New: Optional callback for sharing
+  final VoidCallback? onShare;
   final ValueChanged<model.Visibility>? onVisibilityChanged;
 
   const SetCard({
@@ -16,109 +17,121 @@ class SetCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onUpload,
-    this.onShare, // Make it an optional parameter
+    this.onShare,
     this.onVisibilityChanged,
   });
 
   String _visibilityToString(model.Visibility visibility) {
     switch (visibility) {
-      case model.Visibility.private:
-        return 'Private';
-      case model.Visibility.publicView:
-        return 'Public (View)';
-      case model.Visibility.publicCooperate:
-        return 'Public (Edit)';
+      case model.Visibility.private: return 'Private';
+      case model.Visibility.publicView: return 'View Link';
+      case model.Visibility.publicCooperate: return 'Edit Link';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget actionButton;
-
-    if (set.cloudId == null) {
-      // Not uploaded yet
-      actionButton = IconButton(
-        icon: const Icon(Icons.cloud_upload, color: Colors.blueAccent),
-        onPressed: onUpload,
-        tooltip: 'Upload to Cloud',
-      );
-    } else if (!set.isSynced) {
-      // Uploaded, but needs update
-      actionButton = IconButton(
-        icon: const Icon(Icons.sync, color: Colors.orange),
-        onPressed: onUpload, // This will trigger the update logic in SetsScreen
-        tooltip: 'Update Cloud Set',
-      );
-    } else {
-      // Uploaded and synced. Check visibility to decide on action button.
-      if (set.visibility != model.Visibility.private) {
-        // If public, show share button
-        actionButton = IconButton(
-          icon: const Icon(Icons.share, color: Colors.green),
-          onPressed: onShare,
-          tooltip: 'Share Cloud Set',
-        );
-      } else {
-        // If private, show a lock icon instead of a share button.
-        actionButton = const Padding(
-          padding: EdgeInsets.all(8.0), // To align with IconButton's padding
-          child: Icon(Icons.lock, color: Colors.grey),
-        );
-      }
-    }
+    final bool isSynced = set.isSynced;
+    final bool hasCloud = set.cloudId != null;
 
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        margin: const EdgeInsets.all(8),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.25,
-                    child: Text(
-                      set.name,
-                      style: Theme.of(context).textTheme.titleLarge,
-                      overflow: TextOverflow.ellipsis,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8146BD).withOpacity(0.05),
+                  blurRadius: 10, offset: const Offset(0, 5),
+                )
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Background Pattern (Subtle icon, purely decorative)
+                Positioned(
+                  bottom: -20, right: -20,
+                  child: Icon(
+                    Icons.style_rounded,
+                    size: 100, color: const Color(0xFF8146BD).withOpacity(0.05),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              set.name,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF4A148C)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          _buildStatusIcon(),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${set.cards.length} StepCards",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      const Spacer(),
+                      if (hasCloud)
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<model.Visibility>(
+                            value: set.visibility,
+                            isDense: true,
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF8146BD), fontWeight: FontWeight.bold),
+                            icon: const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF8146BD)),
+                            items: model.Visibility.values.map((v) => DropdownMenuItem(value: v, child: Text(_visibilityToString(v)))).toList(),
+                            onChanged: (val) => val != null ? onVisibilityChanged?.call(val) : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!isSynced || !hasCloud)
+                  Positioned(
+                    bottom: 8, right: 8,
+                    child: FloatingActionButton.small(
+                      onPressed: onUpload,
+                      elevation: 2,
+                      backgroundColor: isSynced ? const Color(0xFF8146BD) : Colors.orangeAccent,
+                      child: Icon(hasCloud ? Icons.sync : Icons.cloud_upload_rounded, size: 18),
+                    ),
+                  )
+                else if (set.visibility != model.Visibility.private)
+                  Positioned(
+                    bottom: 8, right: 8,
+                    child: FloatingActionButton.small(
+                      onPressed: onShare,
+                      elevation: 2,
+                      backgroundColor: const Color(0xFFE0436B),
+                      child: const Icon(Icons.share_rounded, size: 18),
                     ),
                   ),
-                  const Spacer(),
-                  Text("${set.cards.length} cards"),
-                   if (set.cloudId != null)
-                    DropdownButton<model.Visibility>(
-                      value: set.visibility,
-                      isExpanded: true,
-                      items: model.Visibility.values.map((v) {
-                        return DropdownMenuItem<model.Visibility>(
-                          value: v,
-                          child: Text(_visibilityToString(v),
-                              overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      onChanged: (newValue) {
-                        if (newValue != null) {
-                          onVisibilityChanged?.call(newValue);
-                        }
-                      },
-                    ),
-                ],
-              ),
+              ],
             ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: actionButton,
-            ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildStatusIcon() {
+    if (set.cloudId == null) return const Icon(Icons.cloud_off_rounded, size: 16, color: Colors.grey);
+    if (!set.isSynced) return const Icon(Icons.error_outline_rounded, size: 16, color: Colors.orange);
+    return const Icon(Icons.cloud_done_rounded, size: 16, color: Colors.green);
   }
 }

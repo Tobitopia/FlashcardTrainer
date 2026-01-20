@@ -56,7 +56,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       if (_isPlaying) {
         _controller.pause();
       } else {
-        // If at the end of the trim range, seek to the start
         if (_controller.value.position >= Duration(milliseconds: _trimValues.end.toInt())) {
           _controller.seekTo(Duration(milliseconds: _trimValues.start.toInt()));
         }
@@ -71,21 +70,30 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       _isExporting = true;
     });
 
-    final editor = VideoEditorBuilder(videoPath: widget.video.path);
-    final outputPath = await editor.trim(
-      startTimeMs: _trimValues.start.toInt(),
-      endTimeMs: _trimValues.end.toInt(),
-    ).export(onProgress: (progress) {
-      // You can use this to show a progress bar
-    });
+    try {
+      final editor = VideoEditorBuilder(videoPath: widget.video.path);
+      final outputPath = await editor.trim(
+        startTimeMs: _trimValues.start.toInt(),
+        endTimeMs: _trimValues.end.toInt(),
+      ).export(onProgress: (progress) {
+        // You can use this to show a progress bar
+      });
 
-    setState(() {
-      _isExporting = false;
-    });
-
-    // Pass the new file back to the previous screen
-    if (mounted && outputPath != null) {
-      Navigator.of(context).pop(File(outputPath));
+      if (mounted && outputPath != null) {
+        Navigator.of(context).pop(File(outputPath));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error exporting video: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
     }
   }
 
@@ -116,7 +124,6 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
                           icon: Icon(
                             _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
                             size: 70,
-
                             color: Colors.white.withOpacity(_isPlaying ? 0.7 : 1),
                           ),
                           onPressed: _togglePlayPause,
