@@ -114,6 +114,22 @@ class SetRepositoryImpl implements ISetRepository {
     
     if (newCloudId != null) {
       await updateSetCloudStatus(set.id!, newCloudId, isSynced: true);
+      
+      // Update local cards with any new remoteUrls generated during upload
+      for (var card in fullSet.cards) {
+        if (card.id != null && card.remoteUrl != null) {
+          // We can use the card repository to update just the remoteUrl
+          // But since _cardRepository.updateCard updates everything, we should be careful.
+          // Let's do a direct SQL update for efficiency and safety.
+          final db = await _databaseService.database;
+          await db.update(
+            'cards',
+            {'remoteUrl': card.remoteUrl},
+            where: 'id = ?',
+            whereArgs: [card.id],
+          );
+        }
+      }
     }
     return newCloudId;
   }

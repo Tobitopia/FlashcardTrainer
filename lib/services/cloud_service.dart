@@ -117,6 +117,8 @@ class CloudService {
 
         if (mediaUrl == null && card.mediaPath != null) {
            mediaUrl = await _uploadMediaFile(card.mediaPath!, setDocRef.id);
+           // Important: Update the in-memory object so we can save it to local DB later
+           card.remoteUrl = mediaUrl; 
         }
 
         await cardsCollection.add({
@@ -184,19 +186,15 @@ class CloudService {
     }
   }
 
-  // New method to completely remove a set from the cloud
   Future<bool> deleteVocabSet(String setId) async {
     try {
-      // 1. Delete all cards in subcollection
       final cardsQuery = await _firestore.collection('sets').doc(setId).collection('cards').get();
       for (var doc in cardsQuery.docs) {
         await doc.reference.delete();
       }
 
-      // 2. Delete the set document itself
       await _firestore.collection('sets').doc(setId).delete();
 
-      // 3. Try to delete the storage folder (best effort)
       try {
         final listResult = await _storage.ref().child('uploads/$setId').listAll();
         for (var item in listResult.items) {
