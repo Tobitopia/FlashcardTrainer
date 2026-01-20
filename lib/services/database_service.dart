@@ -16,8 +16,8 @@ class DatabaseService {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, filePath);
-    // Increment database version for role support
-    final db = await openDatabase(path, version: 5, onCreate: _createDB, onUpgrade: _onUpgradeDB);
+    // Increment database version for remoteUrl support
+    final db = await openDatabase(path, version: 7, onCreate: _createDB, onUpgrade: _onUpgradeDB);
     await db.execute('PRAGMA foreign_keys = ON');
     return db;
   }
@@ -30,7 +30,8 @@ class DatabaseService {
         cloudId TEXT,
         isSynced INTEGER NOT NULL DEFAULT 1,
         visibility INTEGER NOT NULL DEFAULT 0,
-        role TEXT
+        role TEXT,
+        isProgression INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -40,9 +41,11 @@ class DatabaseService {
         title TEXT NOT NULL,
         description TEXT NOT NULL,
         mediaPath TEXT,
+        remoteUrl TEXT,
         rating INTEGER NOT NULL,
         lastTrained INTEGER,
         setId INTEGER NOT NULL,
+        createdAt INTEGER,
         FOREIGN KEY (setId) REFERENCES sets (id) ON DELETE CASCADE
       )
     ''');
@@ -70,6 +73,13 @@ class DatabaseService {
     }
     if (oldVersion < 5) {
       await db.execute("ALTER TABLE sets ADD COLUMN role TEXT");
+    }
+    if (oldVersion < 6) {
+      await db.execute("ALTER TABLE sets ADD COLUMN isProgression INTEGER NOT NULL DEFAULT 0");
+      await db.execute("ALTER TABLE cards ADD COLUMN createdAt INTEGER");
+    }
+    if (oldVersion < 7) {
+      await db.execute("ALTER TABLE cards ADD COLUMN remoteUrl TEXT");
     }
   }
 }

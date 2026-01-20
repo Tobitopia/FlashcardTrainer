@@ -1,31 +1,92 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:projects/app/locator.dart';
 import 'package:projects/screens/auth/login_screen.dart';
 import 'package:projects/services/auth_service.dart';
+import 'package:projects/services/cloud_service.dart';
+import 'package:projects/repositories/set_repository.dart';
 import '../app/navigation.dart';
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isSyncing = false;
+  String? _lastUserId;
+
+  Future<void> _syncUserSets(User user) async {
+    // Only sync if the user has changed (to avoid infinite loops)
+    if (_lastUserId == user.uid) return;
+    _lastUserId = user.uid;
+
+    final cloudService = locator<CloudService>();
+    final setRepository = locator<ISetRepository>();
+
+    setState(() => _isSyncing = true);
+    try {
+      final cloudIds = await cloudService.fetchAllUserSetIds();
+      final localSets = await setRepository.getAllSets();
+      final localCloudIds = localSets.map((s) => s.cloudId).toSet();
+
+      for (String id in cloudIds) {
+        if (!localCloudIds.contains(id)) {
+          final vocabSet = await cloudService.downloadVocabSet(id);
+          if (vocabSet != null) {
+            await setRepository.importSet(vocabSet);
+          }
+        }
+      }
+    } catch (e) {
+      print("Background sync error: $e");
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: AuthService().authStateChanges,
+      stream: locator<AuthService>().authStateChanges,
       builder: (context, snapshot) {
-        // User is logged in
         if (snapshot.connectionState == ConnectionState.active) {
-          if (snapshot.hasData) {
-            return const NavigationBarScreen(); // Go to the main app screen
+          final user = snapshot.data;
+          
+          if (user != null) {
+            // Schedule the sync to run AFTER the current build frame
+            if (_lastUserId != user.uid) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _syncUserSets(user);
+              });
+            }
+            
+            if (_isSyncing) {
+              return const Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 20),
+                      Text("Restoring your StepSets...", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF8146BD))),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return const NavigationBarScreen();
           }
-          // User is not logged in
-          return const LoginScreen(); // Go to the login screen
+          
+          // User is null (logged out) - Reset tracking variable
+          if (_lastUserId != null) {
+             _lastUserId = null;
+          }
+          return const LoginScreen();
         }
-        // Show a loading indicator while checking auth state
-        return const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       },
     );
   }

@@ -12,19 +12,43 @@ class CloudService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  /// Joins an existing set as a collaborator (editor or viewer)
+  Future<List<String>> fetchAllUserSetIds() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    try {
+      final ownedQuery = await _firestore.collection('sets')
+          .where('ownerId', isEqualTo: user.uid)
+          .get();
+
+      final collaboratorQuery = await _firestore.collection('sets')
+          .where('collaborators.${user.uid}', whereIn: ['editor', 'viewer'])
+          .get();
+
+      final allIds = <String>{};
+      for (var doc in ownedQuery.docs) {
+        allIds.add(doc.id);
+      }
+      for (var doc in collaboratorQuery.docs) {
+        allIds.add(doc.id);
+      }
+
+      return allIds.toList();
+    } catch (e) {
+      print("Error fetching user sets: $e");
+      return [];
+    }
+  }
+
   Future<bool> joinVocabSet(String setId, String role) async {
     final user = _auth.currentUser;
     if (user == null) return false;
 
     try {
       DocumentReference setRef = _firestore.collection('sets').doc(setId);
-      
-      // Add the current user to the collaborators map
       await setRef.update({
         'collaborators.${user.uid}': role,
       });
-      print("Successfully joined set $setId as $role");
       return true;
     } catch (e) {
       print("Error joining set: $e");
@@ -32,7 +56,6 @@ class CloudService {
     }
   }
 
-  /// Helper method to upload a file to Cloud Storage and get its URL
   Future<String?> _uploadMediaFile(String filePath, String setId) async {
     final User? currentUser = _auth.currentUser;
     if (currentUser == null) return null;
@@ -68,9 +91,9 @@ class CloudService {
           'setName': vocabSet.name,
           'updatedAt': FieldValue.serverTimestamp(),
           'visibility': vocabSet.visibility.index,
+          'isProgression': vocabSet.isProgression,
         });
 
-        // Delete only cards owned by current user OR if user is set owner
         QuerySnapshot currentCards = await setDocRef.collection('cards').get();
         for (DocumentSnapshot doc in currentCards.docs) {
           await doc.reference.delete();
@@ -83,15 +106,17 @@ class CloudService {
           'setName': vocabSet.name,
           'createdAt': FieldValue.serverTimestamp(),
           'visibility': vocabSet.visibility.index,
+          'isProgression': vocabSet.isProgression,
           'collaborators': {}, 
         });
       }
 
       CollectionReference cardsCollection = setDocRef.collection('cards');
       for (VocabCard card in vocabSet.cards) {
-        String? mediaUrl = card.mediaPath;
-        if (mediaUrl != null && !mediaUrl.startsWith('http')) {
-          mediaUrl = await _uploadMediaFile(mediaUrl, setDocRef.id);
+        String? mediaUrl = card.remoteUrl; 
+
+        if (mediaUrl == null && card.mediaPath != null) {
+           mediaUrl = await _uploadMediaFile(card.mediaPath!, setDocRef.id);
         }
 
         await cardsCollection.add({
@@ -101,7 +126,8 @@ class CloudService {
           'rating': card.rating,
           'ownerId': currentUser.uid, 
           'visibility': vocabSet.visibility.index,
-          if (mediaUrl != null) 'mediaUrl': mediaUrl,
+          'createdAt': card.createdAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          if (mediaUrl != null) 'mediaUrl': mediaUrl, 
         });
       }
       return setDocRef.id;
@@ -134,9 +160,10 @@ class CloudService {
         isSynced: true,
         visibility: Visibility.values[setData['visibility'] ?? 0],
         role: role,
+        isProgression: setData['isProgression'] ?? false,
       );
 
-      QuerySnapshot cardsSnapshot = await _firestore.collection('sets').doc(setId).collection('cards').get();
+      QuerySnapshot cardsSnapshot = await _firestore.collection('sets').doc(setId).collection('cards').orderBy('createdAt', descending: false).get();
 
       for (var cardDoc in cardsSnapshot.docs) {
         final cardData = cardDoc.data() as Map<String, dynamic>;
@@ -145,13 +172,44 @@ class CloudService {
           description: cardData['description'],
           labels: List<String>.from(cardData['labels'] ?? []),
           rating: cardData['rating'] ?? 0,
-          mediaPath: cardData['mediaUrl'],
+          remoteUrl: cardData['mediaUrl'], 
+          mediaPath: null, 
+          createdAt: cardData['createdAt'] != null ? DateTime.fromMillisecondsSinceEpoch(cardData['createdAt']) : null,
         ));
       }
       return set;
     } catch (e) {
       print('Download error: $e');
       return null;
+    }
+  }
+
+  // New method to completely remove a set from the cloud
+  Future<bool> deleteVocabSet(String setId) async {
+    try {
+      // 1. Delete all cards in subcollection
+      final cardsQuery = await _firestore.collection('sets').doc(setId).collection('cards').get();
+      for (var doc in cardsQuery.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. Delete the set document itself
+      await _firestore.collection('sets').doc(setId).delete();
+
+      // 3. Try to delete the storage folder (best effort)
+      try {
+        final listResult = await _storage.ref().child('uploads/$setId').listAll();
+        for (var item in listResult.items) {
+          await item.delete();
+        }
+      } catch (storageError) {
+        print("Storage cleanup error (non-fatal): $storageError");
+      }
+
+      return true;
+    } catch (e) {
+      print("Error deleting set from cloud: $e");
+      return false;
     }
   }
 }

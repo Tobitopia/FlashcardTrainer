@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:projects/app/locator.dart';
 import 'package:projects/models/vocab_set.dart';
@@ -24,11 +25,9 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   late final List<Widget> _widgetOptions;
   StreamSubscription<Uri>? _linkSubscription;
 
-  // Keys are now instance variables of the state
   late final GlobalKey<SetsScreenState> _setsScreenKey;
   late final GlobalKey<AllCardsScreenState> _allCardsScreenKey;
 
-  // Dependencies from locator
   final AppLinks _appLinks = locator<AppLinks>();
   final CloudService _cloudService = locator<CloudService>();
   final ISetRepository _setRepository = locator<ISetRepository>();
@@ -61,74 +60,63 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
         final role = uri.queryParameters['role'] ?? 'viewer';
         
         if (setId != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Joining set as $role...")),
-          );
+          _showGlassySnackBar("Joining set as $role...", Colors.blueAccent);
           
-          // 1. Join the set in the cloud
           final joined = await _cloudService.joinVocabSet(setId, role);
           
           if (joined) {
-            // 2. Download and import
             final vocabSet = await _cloudService.downloadVocabSet(setId);
             if (vocabSet != null) {
               await _setRepository.importSet(vocabSet);
               _setsScreenKey.currentState?.reloadSets();
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("'${vocabSet.name}' joined successfully!"),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                _showGlassySnackBar("'${vocabSet.name}' joined successfully!", Colors.green);
               }
             } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Failed to download set data."),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
+              if (mounted) _showGlassySnackBar("Failed to download set data.", Colors.red);
             }
           } else {
-             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Could not join set. Access may have been restricted."),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
+             if (mounted) _showGlassySnackBar("Could not join set. Access restricted.", Colors.red);
           }
         }
       }
     });
   }
 
+  void _showGlassySnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: color.withOpacity(0.8),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
   static const List<String> _appBarTitles = <String>[
     'My Sets',
     'All Cards',
-    'My Profile',
+    'Profile',
   ];
 
   void _onItemTapped(int index) {
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.ease,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutExpo,
     );
   }
 
   String _visibilityToString(model.Visibility visibility) {
     switch (visibility) {
       case model.Visibility.private:
-        return 'Private (not shared)';
+        return 'Private (Internal)';
       case model.Visibility.publicView:
-        return 'Anyone with the link can view';
+        return 'Link: View Only';
       case model.Visibility.publicCooperate:
-        return 'Anyone with the link can cooperate';
+        return 'Link: Cooperative';
     }
   }
 
@@ -141,56 +129,56 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return AlertDialog(
-              title: const Text("Create a New Set"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Set Name',
-                      hintText: 'Enter the name of your new set',
-                    ),
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: AlertDialog(
+                backgroundColor: Colors.white.withOpacity(0.9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                title: const Text("Create StepSet", style: TextStyle(color: Color(0xFF8146BD))),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          labelText: 'Set Name',
+                          filled: true,
+                          fillColor: Colors.purple.withOpacity(0.05),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Sharing:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      DropdownButton<model.Visibility>(
+                        value: selectedVisibility,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        onChanged: (model.Visibility? newValue) {
+                          if (newValue != null) setState(() => selectedVisibility = newValue);
+                        },
+                        items: model.Visibility.values.map((v) => DropdownMenuItem(value: v, child: Text(_visibilityToString(v)))).toList(),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  const Text('Sharing Options:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  DropdownButton<model.Visibility>(
-                    value: selectedVisibility,
-                    isExpanded: true,
-                    onChanged: (model.Visibility? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          selectedVisibility = newValue;
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (controller.text.trim().isNotEmpty) {
+                        Navigator.pop(ctx, {
+                          'name': controller.text.trim(),
+                          'visibility': selectedVisibility,
                         });
                       }
                     },
-                    items: model.Visibility.values.map((model.Visibility visibility) {
-                      return DropdownMenuItem<model.Visibility>(
-                        value: visibility,
-                        child: Text(_visibilityToString(visibility)),
-                      );
-                    }).toList(),
+                    child: const Text("Create"),
                   ),
                 ],
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                TextButton(
-                  onPressed: () {
-                    if (controller.text.trim().isNotEmpty) {
-                      Navigator.pop(ctx, {
-                        'name': controller.text.trim(),
-                        'visibility': selectedVisibility,
-                      });
-                    }
-                  },
-                  child: const Text("Add"),
-                ),
-              ],
             );
           },
         );
@@ -198,24 +186,12 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
     );
 
     if (result != null) {
-      final String name = result['name'];
-      final model.Visibility visibility = result['visibility'];
-      await _setRepository.insertSet(VocabSet(name: name, visibility: visibility));
+      await _setRepository.insertSet(VocabSet(
+        name: result['name'], 
+        visibility: result['visibility'],
+        isProgression: false, // Default to false, can be toggled inside
+      ));
       _setsScreenKey.currentState?.reloadSets();
-    }
-  }
-
-  void _startAllCardsTraining() {
-    final filteredCards = _allCardsScreenKey.currentState?.filteredCards ?? [];
-    if (filteredCards.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => TrainingScreen(cards: filteredCards)),
-      ).then((_) => _allCardsScreenKey.currentState?.loadData());
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No cards to train with the current filters!")),
-      );
     }
   }
 
@@ -223,45 +199,52 @@ class _NavigationBarScreen extends State<NavigationBarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_appBarTitles.elementAt(_selectedIndex)),
-        centerTitle: true,
-        elevation: 4.0,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/images/logo.png', height: 30, errorBuilder: (c, e, s) => const Icon(Icons.psychology, color: Color(0xFF8146BD))),
+            const SizedBox(width: 10),
+            Text(_appBarTitles[_selectedIndex]),
+          ],
+        ),
+        flexibleSpace: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(color: Colors.white.withOpacity(0.2)),
+          ),
+        ),
       ),
       body: PageView(
         controller: _pageController,
         children: _widgetOptions,
-        onPageChanged: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onPageChanged: (index) => setState(() => _selectedIndex = index),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.folder_copy_outlined), label: 'Sets'),
-          BottomNavigationBarItem(icon: Icon(Icons.style_outlined), label: 'All Cards'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
-        ],
-        currentIndex: _selectedIndex,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        selectedItemColor: Theme.of(context).colorScheme.onPrimary,
-        unselectedItemColor: Theme.of(context).colorScheme.onPrimary.withOpacity(0.6),
-        onTap: _onItemTapped,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.8),
+          border: const Border(top: BorderSide(color: Colors.black12, width: 0.5)),
+        ),
+        child: BottomNavigationBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), activeIcon: Icon(Icons.grid_view_rounded, color: Color(0xFF8146BD)), label: 'Sets'),
+            BottomNavigationBarItem(icon: Icon(Icons.style_rounded), activeIcon: Icon(Icons.style_rounded, color: Color(0xFF8146BD)), label: 'Cards'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), activeIcon: Icon(Icons.person_rounded, color: Color(0xFF8146BD)), label: 'Profile'),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: const Color(0xFF8146BD),
+          unselectedItemColor: Colors.grey,
+          onTap: _onItemTapped,
+        ),
       ),
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(
-              onPressed: _addSet,
-              tooltip: 'Add New Set',
-              child: const Icon(Icons.add),
-            )
-          : _selectedIndex == 1
-              ? FloatingActionButton(
-                  onPressed: _startAllCardsTraining,
-                  child: const Icon(Icons.play_arrow),
-                )
-              : null,
+      floatingActionButton: _selectedIndex == 2 ? null : FloatingActionButton(
+        heroTag: 'main_fab', // Unique hero tag
+        onPressed: _selectedIndex == 0 ? _addSet : () => _allCardsScreenKey.currentState?.filteredCards.isNotEmpty == true 
+          ? Navigator.push(context, MaterialPageRoute(builder: (_) => TrainingScreen(cards: _allCardsScreenKey.currentState!.filteredCards)))
+          : null,
+        child: Icon(_selectedIndex == 0 ? Icons.add : Icons.play_arrow),
+      ),
     );
   }
 }

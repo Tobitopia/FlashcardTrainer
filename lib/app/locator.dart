@@ -29,6 +29,6 @@ void setupLocator() {
     () => LabelRepositoryImpl(locator<DatabaseService>()),
   );
   locator.registerLazySingleton<ISetRepository>(
-    () => SetRepositoryImpl(locator<DatabaseService>(), locator<ICardRepository>()),
+    () => SetRepositoryImpl(locator<DatabaseService>(), locator<ICardRepository>(), locator<CloudService>()),
   );
 }
