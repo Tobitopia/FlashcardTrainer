@@ -18,10 +18,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Visual Studio Code related
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -32,8 +30,6 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
-google-services.json
-firebase.json
 
 # Symbolication related
 app.*.symbols
@@ -45,3 +41,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase - Ignore these for public repos to force users to supply their own config
+google-services.json
+GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Android Signing Keys - NEVER COMMIT THESE
+*.jks
+*.keystore
+key.properties
+
+# Local configuration
+local.properties
